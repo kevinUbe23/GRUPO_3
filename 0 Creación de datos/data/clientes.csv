@@ -1,0 +1,201 @@
+cliente_id,nombre,sector,antiguedad_meses,tiene_garantia,perfil_pago
+CLI0001,Alvarado-Laureano,agro,17,1,regular
+CLI0002,Grupo Chávez y Canales,manufactura,34,0,critico
+CLI0003,Villanueva-Pichardo,salud,72,1,riesgoso
+CLI0004,Anguiano A.C.,construccion,7,1,regular
+CLI0005,Grupo Santiago y Zarate,retail,32,1,excelente
+CLI0006,Valentín S.A.,salud,28,0,excelente
+CLI0007,"Garay, Rangel y Villalpando",agro,31,1,excelente
+CLI0008,"Proyectos Aguayo, Crespo y Pichardo",servicios,3,0,riesgoso
+CLI0009,Ledesma-Cortés S.A.,servicios,57,1,regular
+CLI0010,Canales-Caballero S.C.,tecnologia,30,0,riesgoso
+CLI0011,Muñoz-Montañez,manufactura,16,1,excelente
+CLI0012,"Proyectos Armas, Rico y Terán",agro,48,0,critico
+CLI0013,Ochoa-Berríos,manufactura,8,0,riesgoso
+CLI0014,"Proyectos Nájera, Vélez y Espinosa",agro,51,1,excelente
+CLI0015,Armenta-Gil,manufactura,49,1,excelente
+CLI0016,"Despacho Gonzales, Campos y Olivares",agro,8,1,excelente
+CLI0017,"Club Nava, Curiel y Nevárez",manufactura,13,0,regular
+CLI0018,Fuentes-Jaramillo e Hijos,tecnologia,51,1,regular
+CLI0019,de la Torre-Tejeda,construccion,23,1,regular
+CLI0020,Grupo Ríos y Ojeda,manufactura,37,0,regular
+CLI0021,"Laboratorios Valdés, Gaona y Meléndez",construccion,24,0,regular
+CLI0022,Girón y Asociados,agro,23,1,excelente
+CLI0023,Mata S.C.,retail,31,0,regular
+CLI0024,"Despacho Galarza, Valverde y Mascareñas",tecnologia,32,0,regular
+CLI0025,Laboratorios Sanabria y Ortiz,construccion,54,1,regular
+CLI0026,Collazo y Jaimes S.A.,transporte,43,0,riesgoso
+CLI0027,Laboratorios Valentín y Tijerina,transporte,53,0,excelente
+CLI0028,"Laboratorios Viera, Porras y Vergara",construccion,21,1,regular
+CLI0029,"Nájera, Gaona y Chavarría",salud,71,1,regular
+CLI0030,Bustos y Arreola y Asociados,servicios,54,1,excelente
+CLI0031,Corral-Crespo,retail,68,0,regular
+CLI0032,"Ybarra, Barela y Olmos",servicios,17,1,excelente
+CLI0033,"Ybarra, Rocha y Tafoya",salud,57,1,excelente
+CLI0034,"Industrias Alba, Carrero y Terán",transporte,51,0,critico
+CLI0035,"Proyectos Molina, Carrasco y Lozada",retail,70,0,critico
+CLI0036,"Cotto, Rendón y Acosta",agro,17,0,riesgoso
+CLI0037,"Industrias Domínguez, Sarabia y Caraballo",salud,46,1,regular
+CLI0038,"Proyectos Sarabia, Farías y Corral",agro,23,1,excelente
+CLI0039,Cuellar-Tirado y Asociados,manufactura,67,0,riesgoso
+CLI0040,Zamudio S.A. de C.V.,construccion,41,0,regular
+CLI0041,Almaraz y Carrasco S.A. de C.V.,servicios,22,1,excelente
+CLI0042,"Grupo Baeza, Guajardo y Valverde",retail,72,0,regular
+CLI0043,Briones-Ruelas,manufactura,44,1,excelente
+CLI0044,Tejada-Castillo,agro,49,0,critico
+CLI0045,Laboratorios Roldán-Ulloa,manufactura,33,1,regular
+CLI0046,Corporacin Suárez-Zepeda,manufactura,13,0,riesgoso
+CLI0047,"Galarza, Tirado y Fernández",servicios,71,0,regular
+CLI0048,"Club Niño, Quezada y Sierra",servicios,63,0,regular
+CLI0049,Casárez y Gutiérrez S.A.,salud,36,0,regular
+CLI0050,Mireles-Alonso,construccion,30,0,excelente
+CLI0051,Industrias Garay y Aguilar,tecnologia,42,0,critico
+CLI0052,Bahena-Girón,transporte,59,0,riesgoso
+CLI0053,Aparicio-Menéndez,manufactura,18,0,critico
+CLI0054,Serrano-Granados,construccion,46,1,riesgoso
+CLI0055,"Laboratorios Ruelas, Gallegos y Tirado",retail,31,1,regular
+CLI0056,Laboratorios Vásquez-Velázquez,retail,32,0,critico
+CLI0057,Guerra y Rojas y Asociados,construccion,45,1,excelente
+CLI0058,"Espinal, Cabrera y Calderón",construccion,38,1,excelente
+CLI0059,"Moreno, Piña y Partida",transporte,72,1,excelente
+CLI0060,Ayala y Calvillo A.C.,salud,34,0,regular
+CLI0061,"Mojica, Cardona y Guzmán",salud,27,1,regular
+CLI0062,Grupo Terán y Rangel,transporte,48,0,regular
+CLI0063,Club Elizondo-Leiva,manufactura,9,0,riesgoso
+CLI0064,Haro y Benítez S.C.,tecnologia,10,0,regular
+CLI0065,Arteaga-Toledo,construccion,16,1,regular
+CLI0066,Cabán y Asociados,salud,71,0,regular
+CLI0067,Grupo Palomo y Ruelas,construccion,26,1,excelente
+CLI0068,Gallardo y Pacheco A.C.,manufactura,12,0,riesgoso
+CLI0069,Club Acevedo-Orellana,retail,9,1,excelente
+CLI0070,"Proyectos Rentería, Lira y Piña",construccion,14,0,critico
+CLI0071,Correa y Espinal S.A. de C.V.,transporte,24,0,riesgoso
+CLI0072,Despacho Venegas y Torres,retail,30,0,excelente
+CLI0073,Martínez A.C.,salud,24,1,excelente
+CLI0074,Viera S.C.,transporte,36,0,riesgoso
+CLI0075,Despacho Sauceda-Blanco,transporte,39,0,riesgoso
+CLI0076,Despacho Yáñez-Barreto,construccion,22,1,riesgoso
+CLI0077,Club Casares y Vargas,retail,10,0,riesgoso
+CLI0078,Industrias Villegas y Arenas,transporte,43,1,excelente
+CLI0079,Perea-Vergara,servicios,67,0,regular
+CLI0080,Ibarra-Flores e Hijos,manufactura,10,0,excelente
+CLI0081,Griego-Jaimes S.C.,manufactura,26,1,riesgoso
+CLI0082,Laboratorios Macías-Reyna,construccion,33,0,regular
+CLI0083,Beltrán-Aguirre S.C.,salud,8,0,regular
+CLI0084,Benavides-Terrazas,agro,69,1,excelente
+CLI0085,Industrias Jaimes y Centeno,tecnologia,29,0,regular
+CLI0086,Barrientos-Guevara S.A. de C.V.,servicios,33,1,regular
+CLI0087,"Grupo Quezada, Tórrez y Madrid",manufactura,41,0,riesgoso
+CLI0088,Urrutia S.A. de C.V.,manufactura,4,0,regular
+CLI0089,Cervantes-Jaime,agro,12,0,riesgoso
+CLI0090,Carbajal-Uribe,manufactura,19,0,regular
+CLI0091,Corporacin Lerma-Zedillo,servicios,34,1,excelente
+CLI0092,Laboratorios Montalvo y Figueroa,agro,59,0,riesgoso
+CLI0093,"Industrias Sáenz, Heredia y Ávalos",agro,70,1,riesgoso
+CLI0094,Piña-Lebrón,servicios,16,0,regular
+CLI0095,Acosta S.A. de C.V.,manufactura,36,1,riesgoso
+CLI0096,Laboratorios Iglesias-Cuellar,construccion,22,1,regular
+CLI0097,Ureña y Ponce S. R.L. de C.V.,agro,46,1,regular
+CLI0098,Carrasco A.C.,retail,67,0,regular
+CLI0099,Industrias Aranda-Negrón,agro,14,1,excelente
+CLI0100,Club Cavazos-Arguello,servicios,8,1,excelente
+CLI0101,"Corporacin Arenas, Muñiz y Gaitán",transporte,36,1,excelente
+CLI0102,Laboratorios Candelaria y Moreno,manufactura,57,0,regular
+CLI0103,"Correa, Granado y Curiel",servicios,12,0,regular
+CLI0104,Club Alvarado-Duarte,tecnologia,72,1,regular
+CLI0105,Patiño-Guzmán S.A. de C.V.,retail,21,0,critico
+CLI0106,Proyectos Cardenas-Olivas,retail,42,1,excelente
+CLI0107,Rodrígez S.A.,construccion,48,1,regular
+CLI0108,Proyectos Rincón y Montez,salud,16,0,riesgoso
+CLI0109,"Proyectos Gil, Garica y Alva",construccion,22,0,excelente
+CLI0110,Club Méndez y Leiva,servicios,23,0,excelente
+CLI0111,Leiva-Montoya,tecnologia,55,1,regular
+CLI0112,"Terán, Meraz y Amaya",construccion,55,0,excelente
+CLI0113,Ibarra-Domínguez,manufactura,37,0,critico
+CLI0114,"Despacho Cardona, Ybarra y Puente",transporte,51,0,riesgoso
+CLI0115,Martínez-Pulido S. R.L. de C.V.,transporte,31,1,regular
+CLI0116,Olmos-Velázquez,construccion,47,0,riesgoso
+CLI0117,Corporacin Armendáriz y Pulido,construccion,31,1,riesgoso
+CLI0118,Solís y Asociados,manufactura,54,1,excelente
+CLI0119,Corporacin Prado y Barrios,salud,38,0,riesgoso
+CLI0120,Martínez-Castellanos e Hijos,retail,71,1,regular
+CLI0121,"Industrias Mares, Paredes y Mena",agro,17,0,riesgoso
+CLI0122,"Lucero, Urrutia y Cavazos",agro,25,0,riesgoso
+CLI0123,Club Ojeda y Delgado,salud,7,1,regular
+CLI0124,"Club Ulibarri, Abrego y Maestas",tecnologia,47,0,excelente
+CLI0125,"Grupo Posada, Venegas y Zepeda",manufactura,58,1,excelente
+CLI0126,Rivero-Quintanilla S.C.,construccion,52,0,regular
+CLI0127,Industrias Rojas y de la O,salud,35,1,riesgoso
+CLI0128,Limón-Serrato,construccion,3,0,riesgoso
+CLI0129,Cabán-Gollum e Hijos,tecnologia,49,1,excelente
+CLI0130,"Grupo Farías, Contreras y Alvarado",manufactura,43,0,regular
+CLI0131,Guevara S.C.,salud,41,0,regular
+CLI0132,Reséndez-Pedroza,agro,44,1,excelente
+CLI0133,Laboratorios Olivo y Saldaña,salud,19,1,excelente
+CLI0134,"Guerrero, Cordero y Adame",agro,25,0,regular
+CLI0135,Pizarro-Gaona,retail,54,0,critico
+CLI0136,Proyectos Sisneros-Rivera,salud,41,1,regular
+CLI0137,Valdés S.A.,transporte,44,0,regular
+CLI0138,Reyes-Cepeda,servicios,30,0,riesgoso
+CLI0139,Tamez y Valdivia S. R.L. de C.V.,tecnologia,13,1,regular
+CLI0140,Quintero-Santana S.C.,construccion,14,0,critico
+CLI0141,Covarrubias y Roldán S.C.,construccion,42,0,critico
+CLI0142,"Proyectos Gutiérrez, Lebrón y Soliz",construccion,21,1,regular
+CLI0143,Griego y Laureano S.C.,manufactura,63,0,regular
+CLI0144,Lira-Gollum,construccion,61,0,regular
+CLI0145,"Corporacin Maya, Toledo y Blanco",construccion,52,0,regular
+CLI0146,Grupo Godoy-Olivera,retail,21,1,excelente
+CLI0147,Laboratorios Gallegos-Barela,construccion,16,0,regular
+CLI0148,"Pantoja, Menéndez y Torres",transporte,25,0,regular
+CLI0149,Pelayo y Bañuelos S.A.,manufactura,9,1,excelente
+CLI0150,"Ordóñez, Viera y Almonte",transporte,61,1,regular
+CLI0151,"Romero, Aguayo y Mora",tecnologia,70,0,critico
+CLI0152,"Proyectos Orellana, Perea y Tijerina",salud,59,1,excelente
+CLI0153,Club Gaona y Laboy,transporte,60,0,excelente
+CLI0154,"Ruelas, Anaya y Ordóñez",construccion,60,1,regular
+CLI0155,Palacios-de Jesús y Asociados,transporte,38,0,critico
+CLI0156,Cavazos y Tejeda A.C.,manufactura,33,1,excelente
+CLI0157,"Villarreal, Valle y Amador",tecnologia,39,0,riesgoso
+CLI0158,Porras-Cervántez,manufactura,43,0,riesgoso
+CLI0159,Echeverría y Arteaga S.A. de C.V.,salud,20,1,excelente
+CLI0160,"Menchaca, Galarza y Rentería",manufactura,22,0,riesgoso
+CLI0161,Miranda-Ojeda S.A. de C.V.,transporte,56,0,regular
+CLI0162,"Hernádez, Bonilla y Rodrígez",salud,56,1,regular
+CLI0163,Tirado A.C.,retail,52,0,regular
+CLI0164,Garrido-Barrientos y Asociados,tecnologia,51,0,regular
+CLI0165,Angulo S.A.,salud,41,0,excelente
+CLI0166,Proyectos Almonte y Corral,construccion,71,0,riesgoso
+CLI0167,Grupo Rojas y Carrero,salud,65,1,regular
+CLI0168,Club Hidalgo y Negrete,tecnologia,65,1,excelente
+CLI0169,Industrias Zepeda-Carrero,transporte,54,0,excelente
+CLI0170,Corporacin Cardenas-Véliz,retail,19,0,regular
+CLI0171,Marrero S. R.L. de C.V.,retail,53,0,riesgoso
+CLI0172,"Osorio, Farías y Benítez",servicios,13,1,excelente
+CLI0173,Despacho Madera y Zapata,agro,62,1,regular
+CLI0174,Valles-Arguello,transporte,51,1,excelente
+CLI0175,Tejada-Porras e Hijos,salud,44,1,regular
+CLI0176,Barrientos-Santillán e Hijos,salud,38,0,excelente
+CLI0177,Alcala-Peres y Asociados,transporte,35,0,riesgoso
+CLI0178,Caraballo y Prieto S.A. de C.V.,retail,5,0,regular
+CLI0179,Corral y Puga S.A.,manufactura,47,0,critico
+CLI0180,"Industrias Tijerina, Roybal y Rivero",construccion,8,0,excelente
+CLI0181,"Villarreal, Jasso y Medrano",servicios,28,0,regular
+CLI0182,Proyectos Briseño y Leiva,manufactura,33,1,excelente
+CLI0183,Guerrero y Rivera S. R.L. de C.V.,agro,30,0,critico
+CLI0184,"Miramontes, Anaya y Saldaña",manufactura,50,1,riesgoso
+CLI0185,Echeverría-Saavedra S.A.,manufactura,23,0,regular
+CLI0186,Holguín-Molina S.A. de C.V.,salud,6,0,riesgoso
+CLI0187,"Industrias Alarcón, Sierra y Espino",construccion,53,0,riesgoso
+CLI0188,Guardado-Palomo,construccion,12,0,regular
+CLI0189,Vaca y Guajardo e Hijos,agro,16,0,regular
+CLI0190,Salas y Ramos y Asociados,retail,18,0,excelente
+CLI0191,Cabán S.A. de C.V.,tecnologia,47,1,excelente
+CLI0192,Club Guerrero y Malave,tecnologia,11,0,riesgoso
+CLI0193,Rojas-Uribe S. R.L. de C.V.,transporte,4,0,critico
+CLI0194,Pizarro-Urbina S.A. de C.V.,tecnologia,16,0,regular
+CLI0195,Rendón-Juárez S.A. de C.V.,salud,61,0,regular
+CLI0196,"Grupo Casárez, Espinoza y Mata",agro,25,0,regular
+CLI0197,Tello-Escalante,transporte,71,0,riesgoso
+CLI0198,Grupo Roybal y Lebrón,agro,58,0,riesgoso
+CLI0199,"Despacho Esquibel, Lucio y Gaytán",manufactura,44,0,riesgoso
+CLI0200,Duarte-Madrid A.C.,construccion,38,0,riesgoso

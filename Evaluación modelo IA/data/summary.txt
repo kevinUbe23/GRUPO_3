@@ -1,0 +1,27 @@
+Resumen automático de evaluación oficial sobre el dataset del ZIP
+
+Split por factura_id: 4,270 facturas en train y 1,068 en test; 15,735 filas en train y 3,936 en test.
+
+Resultados de benchmarking por F1 macro test:
+- random_forest: F1_macro_test=0.5699, BalancedAcc_test=0.5904, AUC_test=0.8190, gap_f1=0.3876
+- logistic_regression: F1_macro_test=0.5695, BalancedAcc_test=0.5996, AUC_test=0.8135, gap_f1=0.0120
+- xgboost: F1_macro_test=0.5542, BalancedAcc_test=0.5770, AUC_test=0.8163, gap_f1=0.1545
+- dummy_stratified: F1_macro_test=0.2468, BalancedAcc_test=0.2468, AUC_test=0.4964, gap_f1=0.0028
+- dummy_most_frequent: F1_macro_test=0.1242, BalancedAcc_test=0.2500, AUC_test=0.5000, gap_f1=0.0031
+
+Lectura de generalización:
+- random_forest: train=0.9575, test=0.5699, gap=0.3876 -> posible overfitting
+- logistic_regression: train=0.5815, test=0.5695, gap=0.0120 -> ajuste razonable
+- xgboost: train=0.7087, test=0.5542, gap=0.1545 -> posible overfitting
+- dummy_stratified: train=0.2496, test=0.2468, gap=0.0028 -> posible underfitting
+- dummy_most_frequent: train=0.1273, test=0.1242, gap=0.0031 -> posible underfitting
+
+Principales brechas de fairness:
+- bandas_intensidad_gestion | false_negative_rate_macro_ovr | gap=0.1462 | alerta=True
+- bandas_intensidad_gestion | recall_macro | gap=0.1462 | alerta=True
+- bandas_intensidad_gestion | accuracy | gap=0.1255 | alerta=True
+- bandas_intensidad_gestion | f1_macro | gap=0.1213 | alerta=True
+- tiene_disputa_activa | false_negative_rate_macro_ovr | gap=0.1157 | alerta=True
+- tiene_disputa_activa | recall_macro | gap=0.1157 | alerta=True
+- tiene_garantia | precision_macro | gap=0.1082 | alerta=True
+- tiene_garantia | accuracy | gap=0.1001 | alerta=True

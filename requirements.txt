@@ -1,0 +1,9 @@
+numpy
+pandas
+Faker
+matplotlib
+seaborn
+scikit-learn
+jupyter
+nbconvert
+ipykernel

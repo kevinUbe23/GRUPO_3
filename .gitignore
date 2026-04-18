@@ -1,1 +1,7 @@
-resumen*
+.venv/
+.ipython/
+.jupyter/
+.jupyter-data/
+.jupyter-runtime/
+artifacts/
+ag*

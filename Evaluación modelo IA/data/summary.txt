@@ -1,27 +1,51 @@
-Resumen automático de evaluación oficial sobre el dataset del ZIP
+=================================================================
+RESUMEN EVALUACION — PRIORIZACION DE COBRANZAS (COMPONENTE 1)
+=================================================================
 
-Split por factura_id: 4,270 facturas en train y 1,068 en test; 15,735 filas en train y 3,936 en test.
+── DATOS ──────────────────────────────────────────────────────
+  Filas totales:           19,671
+  Filas train:             15,735
+  Filas test:              3,936
+  Facturas train:          4,270
+  Facturas test:           1,068
+  Predictores finales:     40
+    - log1p:               12
+    - numericas:           12
+    - binarias:            14
+    - nominales (OHE):     2
+  Clases en target:        4
 
-Resultados de benchmarking por F1 macro test:
-- random_forest: F1_macro_test=0.5699, BalancedAcc_test=0.5904, AUC_test=0.8190, gap_f1=0.3876
-- logistic_regression: F1_macro_test=0.5695, BalancedAcc_test=0.5996, AUC_test=0.8135, gap_f1=0.0120
-- xgboost: F1_macro_test=0.5542, BalancedAcc_test=0.5770, AUC_test=0.8163, gap_f1=0.1545
-- dummy_stratified: F1_macro_test=0.2468, BalancedAcc_test=0.2468, AUC_test=0.4964, gap_f1=0.0028
-- dummy_most_frequent: F1_macro_test=0.1242, BalancedAcc_test=0.2500, AUC_test=0.5000, gap_f1=0.0031
+── METRICAS TEST ───────────────────────────────────────────────
+  Dummy Baseline             acc=0.3305 | bal_acc=0.2500 | f1=0.1242 | auc=0.5000
+  Logistic Regression        acc=0.5671 | bal_acc=0.5998 | f1=0.5696 | auc=0.8135  <<< MEJOR
+  Random Forest              acc=0.5666 | bal_acc=0.5799 | f1=0.5676 | auc=0.8118
+  XGBoost                    acc=0.5257 | bal_acc=0.5437 | f1=0.5346 | auc=0.7732
 
-Lectura de generalización:
-- random_forest: train=0.9575, test=0.5699, gap=0.3876 -> posible overfitting
-- logistic_regression: train=0.5815, test=0.5695, gap=0.0120 -> ajuste razonable
-- xgboost: train=0.7087, test=0.5542, gap=0.1545 -> posible overfitting
-- dummy_stratified: train=0.2496, test=0.2468, gap=0.0028 -> posible underfitting
-- dummy_most_frequent: train=0.1273, test=0.1242, gap=0.0031 -> posible underfitting
+── GAPS OVERFITTING ─────────────────────────────────────────────
+  Dummy Baseline             gap_f1=0.0031 | gap_auc=0.0000 | acceptable_gap
+  Logistic Regression        gap_f1=0.0121 | gap_auc=0.0122 | acceptable_gap
+  Random Forest              gap_f1=0.4324 | gap_auc=0.1882 | possible_overfitting
+  XGBoost                    gap_f1=0.4642 | gap_auc=0.2268 | possible_overfitting
 
-Principales brechas de fairness:
-- bandas_intensidad_gestion | false_negative_rate_macro_ovr | gap=0.1462 | alerta=True
-- bandas_intensidad_gestion | recall_macro | gap=0.1462 | alerta=True
-- bandas_intensidad_gestion | accuracy | gap=0.1255 | alerta=True
-- bandas_intensidad_gestion | f1_macro | gap=0.1213 | alerta=True
-- tiene_disputa_activa | false_negative_rate_macro_ovr | gap=0.1157 | alerta=True
-- tiene_disputa_activa | recall_macro | gap=0.1157 | alerta=True
-- tiene_garantia | precision_macro | gap=0.1082 | alerta=True
-- tiene_garantia | accuracy | gap=0.1001 | alerta=True
+── FAIRNESS GAPS ─────────────────────────────────────────────────
+  sector_dominante          [accuracy] gap=0.0591 | max=servicios(0.6087) min=construccion(0.5496)
+  sector_dominante          [balanced_accuracy] gap=0.0889 | max=servicios(0.6519) min=tecnologia(0.5630)
+  sector_dominante          [f1_macro] gap=0.0876 | max=servicios(0.6252) min=retail(0.5376)
+  sector_dominante          [worst_class_recall] gap=0.2044 | max=construccion(0.4711) min=manufactura(0.2667)
+  tiene_garantia            [accuracy] gap=0.0784 | max=1(0.6209) min=0(0.5424)
+  tiene_garantia            [balanced_accuracy] gap=0.0175 | max=1(0.6018) min=0(0.5844)
+  tiene_garantia            [f1_macro] gap=0.0466 | max=1(0.5946) min=0(0.5480)
+  tiene_garantia            [worst_class_recall] gap=0.0503 | max=1(0.4334) min=0(0.3831)
+  tiene_disputa_activa      [accuracy] gap=0.0515 | max=1(0.6136) min=0(0.5621)
+  tiene_disputa_activa      [balanced_accuracy] gap=0.0690 | max=1(0.6599) min=0(0.5908)
+  tiene_disputa_activa      [f1_macro] gap=0.0644 | max=0(0.5637) min=1(0.4993)
+  tiene_disputa_activa      [worst_class_recall] gap=0.0119 | max=1(0.4000) min=0(0.3881)
+
+── CONCLUSION ───────────────────────────────────────────────────
+  Modelo seleccionado: 'Logistic Regression'
+  F1-macro test: 0.5696 | AUC-weighted test: 0.8135
+  Diagnostico train-test: 'acceptable_gap', lo que sugiere un ajuste generalizable y robusto.
+  Criterio de seleccion: mayor F1-macro test entre modelos con gap_f1 <= 0.10.
+  El split se leyo desde los archivos oficiales de preparacion por factura_id
+  para garantizar que no haya fuga de datos entre train y test.
+=================================================================

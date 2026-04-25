@@ -1,0 +1,9 @@
+sector,n_registros,f1_macro,recall_+90,degradacion_f1_macro_pct
+agro,439,0.4743,0.5793,12.09
+retail,368,0.5076,0.4348,5.91
+tecnologia,316,0.5174,0.6102,4.1
+construccion,686,0.5287,0.5887,2.0
+transporte,589,0.5344,0.5804,0.95
+servicios,276,0.5494,0.4474,-1.84
+salud,525,0.5495,0.4453,-1.85
+manufactura,737,0.5527,0.6226,-2.45

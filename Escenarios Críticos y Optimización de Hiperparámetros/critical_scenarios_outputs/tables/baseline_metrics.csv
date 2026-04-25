@@ -1,0 +1,2 @@
+escenario,accuracy,balanced_accuracy,f1_macro,f1_weighted,precision_macro,recall_macro,recall_+90,f1_+90,latencia_total_s,latencia_ms_por_reg,n_registros,n_invalidas,degradacion_f1_macro_pct,f1_+30,rec_+30,f1_+60,rec_+60,rec_+90,f1_on_time,rec_on_time
+baseline_clean,0.5379,0.5572,0.5395,0.5297,0.531,0.5572,0.5657,0.58,0.1889,0.048,3936,0,,0.3896,0.3595,0.4436,0.4361,0.5657,0.7447,0.8674

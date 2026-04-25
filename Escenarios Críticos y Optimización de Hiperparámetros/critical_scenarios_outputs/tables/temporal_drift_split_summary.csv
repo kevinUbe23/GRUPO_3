@@ -1,0 +1,2 @@
+fecha_col,n_facturas_train_temporal,n_facturas_test_temporal,n_registros_train_temporal,n_registros_test_temporal,interseccion_factura_id,fecha_max_train,fecha_min_test
+fecha_corte,2669,2669,8664,11007,0,2024-03-08,2023-09-03

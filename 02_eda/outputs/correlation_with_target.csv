@@ -1,0 +1,16 @@
+,corr
+num_corte,0.5708664832870624
+num_gestiones_factura,0.5708664832870624
+dias_hasta_vence,-0.5670167135596443
+dias_desde_emision,0.5543343942046008
+tasa_cumplimiento,-0.4050262515722224
+mora_promedio_hist,0.3856005861783836
+mora_ultimo_tramo,0.35480917456672467
+tasa_cumpl_promesas,-0.3041592419185453
+num_promesas_rotas,0.2681316441623698
+tiene_garantia,-0.25655892229366795
+promesas_total,0.24058499201949798
+num_no_contesta_cons,0.21890782189559344
+dias_desde_ultima_gestion,-0.21584750764163296
+tasa_contacto_cliente,-0.2048757005302993
+ultimo_resultado_enc,0.19920723490995987

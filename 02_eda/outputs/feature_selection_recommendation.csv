@@ -1,0 +1,37 @@
+variable,decision_sugerida,justificacion
+factura_id,excluir_identificador,Llave/trazabilidad; no aporta patrón generalizable como predictor directo.
+cliente_id,excluir_identificador,Llave/trazabilidad; no aporta patrón generalizable como predictor directo.
+num_corte,evaluar_por_redundancia,"Aporta señal, pero puede duplicar información de otra variable cercana."
+fecha_corte,excluir_identificador,Llave/trazabilidad; no aporta patrón generalizable como predictor directo.
+monto,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+condicion_dias,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+antiguedad_meses,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+tiene_garantia,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+sector_retail,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+sector_manufactura,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+sector_servicios,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+sector_construccion,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+sector_agro,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+sector_tecnologia,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+sector_salud,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+sector_transporte,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+num_facturas_prev,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+mora_promedio_hist,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+mora_ultimo_tramo,evaluar_por_redundancia,"Aporta señal, pero puede duplicar información de otra variable cercana."
+tasa_cumplimiento,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+monto_promedio_hist,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+ratio_monto,evaluar_por_redundancia,"Aporta señal, pero puede duplicar información de otra variable cercana."
+moras_consecutivas,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+num_gestiones_factura,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+dias_desde_ultima_gestion,mantener_con_imputacion,Nulo estructural de corte 0; debe codificarse sin eliminar filas.
+dias_desde_emision,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+dias_hasta_vence,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+tasa_contacto_cliente,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+ultimo_resultado_enc,mantener_con_imputacion,Nulo estructural de corte 0; debe codificarse sin eliminar filas.
+num_no_contesta_cons,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+tiene_disputa_activa,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+tiene_promesa_activa,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+num_promesas_rotas,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+tasa_cumpl_promesas,mantener_base,Variable numérica disponible al corte y potencialmente predictiva.
+promesas_total,evaluar_por_redundancia,"Aporta señal, pero puede duplicar información de otra variable cercana."
+target_mora,excluir_target,Etiqueta supervisada; usar solo como y.

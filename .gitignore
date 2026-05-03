@@ -2,7 +2,7 @@ resumen*
 
 # Entorno virtual local
 .venv/
-
+.tmp/
 # Cache de Python
 __pycache__/
 *.py[cod]

@@ -1,0 +1,6 @@
+hallazgo_distribucion,riesgo_modelado,decision_preprocessing_algoritmo
+Clases severas sobrerrepresentadas en features_ml por múltiples cortes,Métricas globales como accuracy pueden ocultar mal desempeño por clase,"Usar F1-macro, reporte por clase y evaluar class_weight o balanceo solo dentro de train."
+Una misma factura aparece en varios cortes temporales,Fuga de información si train/test se separa por fila,Aplicar split agrupado por factura_id; todos los cortes de una factura quedan en el mismo conjunto.
+monto y ratio_monto muestran asimetría positiva y cola derecha,Modelos lineales o basados en distancia pueden quedar dominados por escala y extremos,Evaluar log1p o RobustScaler para modelos lineales/distancia; árboles pueden usar valores originales.
+dias_hasta_vence contiene valores negativos,Puede interpretarse erróneamente como dato inválido,Conservarlo porque indica cortes posteriores al vencimiento; opcionalmente crear indicador vencida_en_corte.
+Nulos de última gestión concentrados en corte 0,Eliminar filas descartaría el inicio del ciclo de vida de todas las facturas,Imputar con sentinela e indicador de ausencia de gestión previa.

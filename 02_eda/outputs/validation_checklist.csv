@@ -1,0 +1,9 @@
+regla,estado,evidencia,decision_limpieza_preparacion
+Archivos canónicos disponibles,Cumple,5 archivos leídos desde 01_generacion/data/,Continuar; no se imputan archivos faltantes.
+Sin filas duplicadas exactas,Cumple,Duplicados totales: 0,No eliminar filas por duplicidad.
+Llaves primarias únicas,Cumple,"cliente_id, factura_id, gestion_id y promesa_id validados",Usar las llaves para trazabilidad y joins.
+Integridad referencial entre tablas,Cumple,No se encontraron registros huérfanos,No descartar registros por relaciones faltantes.
+"Consistencia temporal de facturas, gestiones y cortes",Cumple,Fechas de eventos dentro de rangos esperados,Mantener fecha_corte como frontera temporal contra leakage.
+Target consistente y único por factura,Cumple,target_mora coincide con dias_mora_real y no cambia entre cortes,Usar target_mora solo como etiqueta.
+Nulos estructurales identificados,Cumple,"Nulos en variables de última gestión: {'dias_desde_ultima_gestion': 5338, 'ultimo_resultado_enc': 5338}; cortes 0: 5338",No eliminar filas; imputar con valor sentinela e indicador de ausencia.
+Split compatible con múltiples cortes por factura,Cumple,Máximo de cortes por factura: 11,"Particionar train/test por factura_id, nunca por fila."

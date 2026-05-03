@@ -1,0 +1,17 @@
+variable,q1,q3,iqr,limite_inferior_iqr,limite_superior_iqr,min,max,n_outliers,pct_outliers,decision_eda
+tasa_contacto_cliente,0.4634,0.6061,0.1427,0.24935,0.8201499999999999,0.0,1.0,1598,8.12,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+monto,6641.34,36312.92,29671.579999999998,-37866.03,80820.29,318.96,149413.99,1551,7.88,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+num_promesas_rotas,0.0,4.0,4.0,-6.0,10.0,0.0,21.0,951,4.83,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+num_no_contesta_cons,0.0,1.0,1.0,-1.5,2.5,0.0,8.0,916,4.66,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+moras_consecutivas,0.0,0.0,0.0,0.0,0.0,0.0,27.0,670,3.41,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+promesas_total,1.0,8.0,7.0,-9.5,18.5,0.0,32.0,541,2.75,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+ratio_monto,0.55875,1.4885,0.92975,-0.835875,2.8831249999999997,0.0258,22.8089,292,1.48,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+monto_promedio_hist,7066.31,42436.93,35370.62,-45989.62000000001,95492.86000000002,514.33,140522.21,194,0.99,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+mora_ultimo_tramo,0.0,35.0,35.0,-52.5,87.5,0.0,119.0,81,0.41,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+mora_promedio_hist,3.75,42.14,38.39,-53.835,99.725,0.0,119.0,38,0.19,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+tasa_cumplimiento,0.0,0.8,0.8,-1.2000000000000002,2.0,0.0,1.0,0,0.0,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+num_facturas_prev,7.0,24.0,17.0,-18.5,49.5,0.0,47.0,0,0.0,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+num_gestiones_factura,0.0,4.0,4.0,-6.0,10.0,0.0,10.0,0,0.0,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+dias_desde_emision,0.0,93.0,93.0,-139.5,232.5,0.0,210.0,0,0.0,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+dias_hasta_vence,-30.0,33.0,63.0,-124.5,127.5,-120.0,90.0,0,0.0,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.
+tasa_cumpl_promesas,0.2857,1.0,0.7142999999999999,-0.78575,2.07145,0.0,1.0,0,0.0,Documentar y conservar; revisar transformación robusta si el algoritmo es sensible a escala.

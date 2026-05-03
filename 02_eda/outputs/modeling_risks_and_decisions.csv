@@ -1,0 +1,7 @@
+problema_detectado,evidencia,impacto,recomendacion
+Desbalance de clases en features_ml,+60 y +90 representan 64.26% de las filas,Puede sesgar el entrenamiento y favorecer clases mayoritarias,Usar F1-macro como métrica principal y evaluar class_weight o balanceo dentro de train
+Redundancia entre variables temporales y de gestión,num_corte y num_gestiones_factura capturan información muy cercana,Aumenta redundancia y dificulta interpretación,Conservar num_gestiones_factura como variable operativa principal y evaluar num_corte en análisis de sensibilidad
+Nulos estructurales en corte 0,dias_desde_ultima_gestion y ultimo_resultado_enc no aplican antes de la primera gestión,Exige estrategia explícita de imputación o indicador de ausencia,Imputar con valor sentinela y agregar indicador binario de ausencia
+Outliers plausibles de negocio,"monto, ratio_monto y num_promesas_rotas muestran valores extremos bajo IQR",Pueden influir en modelos sensibles a escala,No eliminar automáticamente; usar escalado robusto o transformación log si corresponde
+Múltiples filas por factura,features_ml contiene cortes temporales por factura,Existe riesgo de fuga si el split se hace por fila,"Dividir train/test por factura_id, no por fila"
+Variable perfil_pago es interna de simulación,"Aparece en clientes y explica coherentemente el target, pero no representa necesariamente una variable real disponible",Puede inflar artificialmente el desempeño si entra al modelo final,Usarla solo para validación conceptual de la simulación; excluirla del set de features finales

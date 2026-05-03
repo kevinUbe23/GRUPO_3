@@ -1,1 +1,11 @@
 resumen*
+
+# Entorno virtual local
+.venv/
+
+# Cache de Python
+__pycache__/
+*.py[cod]
+
+# Checkpoints de notebooks
+.ipynb_checkpoints/

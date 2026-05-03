@@ -24,6 +24,14 @@ La unidad de negocio es la `factura`, pero el dataset de modelado usa `features_
 2. Ejecutar EDA solo de lectura.
 3. Ejecutar preparacion y exportar artefactos listos para modelado.
 
+## Regla De Continuidad Entre Fases
+Antes de iniciar una nueva fase, se debe leer el archivo de contexto compacto de la fase anterior. Ese contexto no reemplaza la revision de codigo ni la validacion de outputs, pero sirve para mantener en memoria las decisiones, supuestos, hallazgos y riesgos metodologicos ya detectados.
+
+Ejemplos:
+- Antes del EDA, leer `01_generacion/contexto_generacion_datos.md`.
+- Antes de preparacion, leer el contexto final del EDA.
+- Antes de modelado, leer el contexto final de preparacion.
+
 ## Criterios De Calidad
 - Las rutas deben ser relativas al proyecto.
 - Cada notebook debe validar sus entradas antes de continuar.

@@ -4,6 +4,8 @@ matplotlib==3.10.8
 scikit-learn==1.8.0
 joblib==1.5.3
 xgboost
+faker
+seaborn
 
 # Util para trabajar los notebooks en el mismo entorno.
 jupyterlab

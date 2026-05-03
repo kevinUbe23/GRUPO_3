@@ -8,6 +8,96 @@ La salida oficial de esta fase queda en:
 
 `01_generacion/data/`
 
+## Conceptos base para entender los datos
+
+### Que es una factura en este proyecto
+
+Una factura es la obligacion comercial que la empresa quiere cobrar. Por eso es la unidad principal del sistema.
+
+Ejemplo:
+
+- Cliente: Empresa ABC
+- Factura: `FAC000123`
+- Monto: 10,000
+- Fecha de emision: 2024-03-01
+- Fecha de vencimiento: 2024-04-01
+- Fecha real de pago: 2024-05-10
+
+El modelo no intenta responder solo "este cliente es bueno o malo". Intenta responder algo mas operativo: "esta factura especifica, en este momento especifico, que riesgo tiene de terminar en mora?".
+
+### Que es `target_mora`
+
+`target_mora` es la etiqueta final que queremos que el modelo aprenda a predecir. Resume como termino pagando la factura.
+
+Se calcula con `dias_mora_real`, que es la diferencia entre la fecha real de pago y la fecha de vencimiento.
+
+| Valor de `target_mora` | Significado |
+|---|---|
+| `on_time` | La factura se pago sin mora |
+| `+30` | La factura se pago con 1 a 30 dias de mora |
+| `+60` | La factura se pago con 31 a 60 dias de mora |
+| `+90` | La factura se pago con 61 dias o mas de mora |
+
+Importante: `target_mora` es la respuesta correcta que se usa para entrenar y evaluar el modelo. No debe usarse como predictor.
+
+### Que son los cortes temporales
+
+Un corte temporal es una fotografia del caso en un momento especifico. En vez de mirar la factura solo al final, el sistema la mira varias veces mientras avanza el ciclo de cobranza.
+
+Ejemplo didactico:
+
+| Momento | Fecha | Que sabe el sistema |
+|---|---|---|
+| Corte 0 | Fecha de emision | Monto, plazo, cliente, historial previo del cliente |
+| Corte 1 | Primera gestion | Lo anterior + canal usado + resultado de la primera gestion |
+| Corte 2 | Segunda gestion | Lo anterior + acumulado de gestiones hasta ese momento |
+| Corte 3 | Promesa de pago | Lo anterior + si existe una promesa activa |
+
+La misma factura puede aparecer varias veces en `features_ml.csv` porque cada fila representa un corte distinto.
+
+Ejemplo:
+
+| factura_id | num_corte | fecha_corte | num_gestiones_factura | target_mora |
+|---|---:|---|---:|---|
+| `FAC000123` | 0 | 2024-03-01 | 0 | `+60` |
+| `FAC000123` | 1 | 2024-04-05 | 1 | `+60` |
+| `FAC000123` | 2 | 2024-04-20 | 2 | `+60` |
+
+Todas las filas comparten el mismo `target_mora` final, porque la factura termino en una sola clase de mora. Lo que cambia entre filas son las features disponibles en cada fecha de corte.
+
+### Por que los cortes importan
+
+Los cortes permiten simular un sistema real de scoring dinamico. El riesgo no se calcula una sola vez; se actualiza conforme llegan nuevas senales.
+
+Una factura puede verse de bajo riesgo al emitirse, pero si luego el cliente no responde tres gestiones seguidas, el riesgo deberia subir. Esa es la razon de tener varias filas por factura.
+
+### Que es data leakage
+
+Data leakage significa que el modelo recibe informacion que no deberia conocer al momento de predecir. En otras palabras, el modelo "ve el futuro".
+
+Ejemplo de leakage:
+
+- Queremos predecir el riesgo el dia 2024-04-01.
+- Pero usamos como feature una promesa creada el dia 2024-04-15.
+- Eso esta mal, porque el 2024-04-01 esa promesa todavia no existia.
+
+Otro ejemplo:
+
+- Usar `dias_mora_real` como feature.
+- Eso seria leakage porque `dias_mora_real` solo se conoce despues de saber la fecha real de pago.
+
+### Como `fecha_corte` ayuda a evitar leakage
+
+`fecha_corte` funciona como una frontera temporal. Para cada fila de `features_ml.csv`, solo se deben usar eventos que ocurrieron en esa fecha o antes.
+
+Regla simple:
+
+Si `fecha_evento <= fecha_corte`, se puede usar.
+
+Si `fecha_evento > fecha_corte`, no se puede usar.
+
+Esto aplica a gestiones, promesas, pagos, resultados y cualquier variable historica. Gracias a esta regla, cada fila del dataset representa lo que el sistema realmente habria sabido en ese momento.
+
 ## Artefactos generados
 
 | Archivo | Filas | Columnas | Rol |
@@ -38,20 +128,6 @@ Validaciones principales:
 - `se_cumplio` se deriva de `fecha_pago_real <= fecha_compromiso`.
 - `features_ml.csv` cubre todas las facturas y tiene target unico por factura.
 - `fecha_corte` siempre esta entre la emision y el pago real.
-
-## Correccion aplicada
-
-Se detecto una inconsistencia de nombres:
-
-- `facturas.csv` usaba `target_mora`.
-- `features_ml.csv` usaba `target`.
-
-Se corrigio para que `features_ml.csv` tambien use `target_mora`. Esto evita ambiguedad en preparacion, modelado y evaluacion.
-
-Tambien se alineo la estructura de carpetas:
-
-- Notebook: `01_generacion/simulacion_datos.ipynb`
-- Outputs: `01_generacion/data/`
 
 ## Distribucion del target por factura
 
@@ -98,6 +174,8 @@ Lectura: a mayor severidad de mora, mayor numero de cortes. Esto refuerza la nec
 | `critico` | 508 | 3.0% | 18.5% | 34.6% | 43.9% |
 
 La simulacion es coherente con la logica de negocio: los clientes excelentes pagan mayoritariamente a tiempo, mientras que los clientes criticos concentran mas casos `+60` y `+90`.
+
+Nota metodologica: `perfil_pago` es una etiqueta interna de simulacion (`excelente`, `regular`, `riesgoso`, `critico`). Sirve para generar datos coherentes y para validar que la simulacion tenga sentido, pero no deberia usarse como predictor del modelo final. Debe revisarse en EDA y eliminarse como variable de modelado en la fase de Preparacion y Procesamiento de Datos, salvo que se justifique explicitamente como variable disponible en un escenario real.
 
 ## Gestiones y promesas
 
@@ -148,7 +226,18 @@ Estos nulos no representan mala calidad de datos. Son nulos estructurales: en el
 4. La metrica principal debe mantenerse como F1-macro, porque `features_ml.csv` sobrerrepresenta las clases severas.
 5. `target_mora` no debe entrar como feature; solo como etiqueta.
 6. Las variables derivadas de gestiones y promesas deben respetar `fecha_corte` para evitar leakage temporal.
+7. `perfil_pago` debe tratarse como variable interna de simulacion; puede analizarse en EDA, pero debe excluirse de las features finales en preparacion.
 
-## Estado de la fase
+## Contexto suficiente para pasar a EDA
 
-La fase de generacion queda metodologicamente valida como insumo para EDA y preparacion. La logica sintetica es coherente con las reglas de negocio y los datos finales ya estan alineados con la nomenclatura canonica del proyecto.
+Con este documento si hay contexto suficiente para iniciar la siguiente fase, siempre que el EDA vuelva a revisar los archivos reales. Para no ir ciego a la siguiente etapa, hay que llevar estas ideas en memoria:
+
+- La unidad de negocio es `factura_id`.
+- `features_ml.csv` tiene una fila por corte temporal, no una fila por factura.
+- `target_mora` es la etiqueta final y no puede usarse como predictor.
+- Las clases severas aparecen mas en `features_ml.csv` porque generan mas gestiones y mas cortes.
+- Los nulos de corte 0 son estructurales, no errores.
+- `fecha_corte` es la frontera que evita usar informacion futura.
+- `perfil_pago` es una variable artificial de simulacion y no debe llegar al modelo final.
+
+La siguiente fase debe confirmar estas conclusiones con analisis exploratorio, revisar distribuciones, nulos, outliers, consistencia entre tablas y riesgos de leakage antes de preparar datos para modelado.

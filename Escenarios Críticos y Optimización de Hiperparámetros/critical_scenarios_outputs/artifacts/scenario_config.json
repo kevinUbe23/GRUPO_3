@@ -158,5 +158,5 @@
     ]
   },
   "tipo_dataset": "prepared",
-  "dataset_path": "/content/GRUPO_3/Presentaci\u00f3n de la fase de preparaci\u00f3n y procesamiento de datos/data/features_ml_prepared.csv"
+  "dataset_path": "/content/GRUPO_3/03_preparacion/outputs/features_ml_prepared.csv"
 }

@@ -1,0 +1,16 @@
+model,fairness_col,metric,max_group,max_value,min_group,min_value,gap
+Logistic Regression,sector_dominante,accuracy,servicios,0.605072,retail,0.548913,0.056159
+Logistic Regression,sector_dominante,balanced_accuracy,servicios,0.649269,tecnologia,0.565029,0.08424
+Logistic Regression,sector_dominante,f1_macro,servicios,0.622234,retail,0.535259,0.086976
+Logistic Regression,sector_dominante,worst_class_recall,construccion,0.458678,manufactura,0.257778,0.2009
+Logistic Regression,sector_dominante,predicted_high_risk_rate,transporte,0.602716,retail,0.372283,0.230434
+Logistic Regression,tiene_garantia,accuracy,1,0.620857,0,0.542794,0.078063
+Logistic Regression,tiene_garantia,balanced_accuracy,1,0.602082,0,0.585485,0.016598
+Logistic Regression,tiene_garantia,f1_macro,1,0.594673,0,0.548374,0.046299
+Logistic Regression,tiene_garantia,worst_class_recall,1,0.430341,0,0.378652,0.051689
+Logistic Regression,tiene_garantia,predicted_high_risk_rate,0,0.581326,1,0.356508,0.224819
+Logistic Regression,tiene_disputa_activa,accuracy,1,0.605744,0,0.563186,0.042558
+Logistic Regression,tiene_disputa_activa,balanced_accuracy,1,0.650376,0,0.592451,0.057926
+Logistic Regression,tiene_disputa_activa,f1_macro,0,0.564955,1,0.490195,0.07476
+Logistic Regression,tiene_disputa_activa,worst_class_recall,0,0.385269,1,0.375,0.010269
+Logistic Regression,tiene_disputa_activa,predicted_high_risk_rate,1,0.856397,0,0.473403,0.382994

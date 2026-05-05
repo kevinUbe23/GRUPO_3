@@ -1,0 +1,6 @@
+variable,decision,motivo
+num_corte,eliminar,Equivale a num_gestiones_factura en esta version del dataset.
+dias_desde_emision,eliminar,Equivale a condicion_dias - dias_hasta_vence en esta version del dataset.
+ratio_monto,conservar_transformar,Aporta escala relativa contra historial; se trata como sesgada con log1p y RobustScaler.
+mora_ultimo_tramo,conservar_transformar,Complementa mora_promedio_hist con senal reciente; se controla con transformacion robusta.
+promesas_total,conservar_transformar,Resume historial de promesas; se conserva junto a ratio_promesas_rotas para lectura operativa.

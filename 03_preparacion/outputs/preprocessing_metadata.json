@@ -1,0 +1,128 @@
+{
+  "input_path": "01_generacion\\data\\features_ml.csv",
+  "output_dir": "03_preparacion\\outputs",
+  "shape_input": [
+    19671,
+    36
+  ],
+  "shape_final": [
+    19671,
+    43
+  ],
+  "train_rows": 15735,
+  "test_rows": 3936,
+  "train_facturas": 4270,
+  "test_facturas": 1068,
+  "facturas_overlap_train_test": 0,
+  "feature_count_unprocessed": 39,
+  "feature_count_processed": 47,
+  "excluded_from_features": [
+    "factura_id",
+    "cliente_id",
+    "fecha_corte",
+    "target_mora"
+  ],
+  "simulation_only_excluded": [
+    "perfil_pago"
+  ],
+  "validations": {
+    "shape": [
+      19671,
+      36
+    ],
+    "facturas_unicas": 5338,
+    "clientes_unicos": 200,
+    "fecha_min": "2023-01-01",
+    "fecha_max": "2025-07-16",
+    "columnas_requeridas_faltantes": [],
+    "duplicados_exactos": 0,
+    "duplicados_factura_corte": 0,
+    "target_inconsistente_por_factura": 0,
+    "fechas_nulas": 0,
+    "monto_no_positivo": 0,
+    "antiguedad_no_positiva": 0,
+    "condicion_invalida": 0,
+    "target_nulos": 0,
+    "clases_target_invalidas": [],
+    "nulos_por_columna": {
+      "dias_desde_ultima_gestion": 5338,
+      "ultimo_resultado_enc": 5338
+    },
+    "perfil_pago_presente": false,
+    "tasa_cumplimiento_fuera_de_rango": 0,
+    "tasa_contacto_cliente_fuera_de_rango": 0,
+    "tasa_cumpl_promesas_fuera_de_rango": 0,
+    "filas_sector_invalido": 0
+  },
+  "cleaning_summary": {
+    "columnas_eliminadas": [
+      "num_corte",
+      "dias_desde_emision"
+    ],
+    "nulos_restantes": {},
+    "num_corte_eq_num_gestiones_factura": true,
+    "dias_hasta_vence_eq_condicion_menos_dias_desde_emision": true
+  },
+  "schema": {
+    "numeric_log": [
+      "monto",
+      "monto_promedio_hist",
+      "ratio_monto",
+      "mora_promedio_hist",
+      "mora_ultimo_tramo",
+      "num_gestiones_factura",
+      "dias_hasta_vence_pos",
+      "dias_mora_observable",
+      "num_no_contesta_cons",
+      "num_promesas_rotas",
+      "promesas_total",
+      "dias_transcurridos_corte"
+    ],
+    "numeric_plain": [
+      "condicion_dias",
+      "antiguedad_meses",
+      "num_facturas_prev",
+      "tasa_cumplimiento",
+      "moras_consecutivas",
+      "tasa_contacto_cliente",
+      "tasa_cumpl_promesas",
+      "friccion_contacto",
+      "ratio_promesas_rotas",
+      "intensidad_gestion",
+      "dias_desde_ultima_gestion"
+    ],
+    "binary": [
+      "tiene_garantia",
+      "tiene_disputa_activa",
+      "tiene_promesa_activa",
+      "sin_gestion_previa",
+      "esta_vencida_al_corte",
+      "cliente_nuevo",
+      "sector_retail",
+      "sector_manufactura",
+      "sector_servicios",
+      "sector_construccion",
+      "sector_agro",
+      "sector_tecnologia",
+      "sector_salud",
+      "sector_transporte"
+    ],
+    "categorical": [
+      "ultimo_resultado_enc"
+    ],
+    "remainder_not_used": [
+      "dias_hasta_vence"
+    ]
+  },
+  "class_weights": {
+    "on_time": 1.4866780045351473,
+    "+30": 1.3280722484807563,
+    "+60": 0.8278093434343434,
+    "+90": 0.7318604651162791
+  },
+  "augmentation_protocol": {
+    "applied_to_main_dataset": false,
+    "reason": "Se conserva como protocolo experimental; no se mezcla con test ni con el dataset base.",
+    "synthetic_rows_preview_generated_on_train": 200
+  }
+}

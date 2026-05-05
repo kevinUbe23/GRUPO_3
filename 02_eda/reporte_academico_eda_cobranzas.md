@@ -114,9 +114,13 @@ También se detectan redundancias importantes. `num_corte` y `num_gestiones_fact
 
 ## 8. Variables categóricas
 
-Las variables categóricas analizadas incluyen `sector`, `perfil_pago`, `canal`, `resultado` y el target. Los canales más frecuentes son `whatsapp`, `llamada` y `email`, coherentes con una estrategia de cobranza que comienza con canales de bajo costo y escala hacia acciones más severas.
+Las variables categóricas revisadas para interpretación operativa fueron `sector`, `canal`, `resultado` y el target. `perfil_pago` existe en `clientes.csv`, pero se trata como **variable interna artificial de la simulación**; por ese motivo no se interpreta como predictor ni se usa para explicar el target.
 
-`perfil_pago` presenta una relación clara con `target_mora`: los perfiles excelentes concentran pagos a tiempo, mientras que los perfiles críticos concentran mayor mora severa. Esta variable valida la coherencia de la simulación, pero debe tratarse como **variable interna artificial**. No debe entrar al modelo final salvo que se justifique como dato disponible en un escenario real.
+La distribución por sector muestra una cartera relativamente diversificada. Los sectores con más clientes son `construccion` (35; 17.50%), `manufactura` (34; 17.00%) y `salud` (27; 13.50%). Los sectores menos frecuentes son `tecnologia` (18; 9.00%) y `servicios` (17; 8.50%). Esta composición permite conservar las dummies de sector como señales de segmentación, sin asumir que un único sector domina todo el comportamiento de cobranza.
+
+En canales de gestión predominan `whatsapp` (4,221; 29.45%), `llamada` (3,854; 26.89%) y `email` (2,704; 18.87%). Las acciones más costosas o formales tienen menor frecuencia: `visita` (2,255; 15.73%) y `carta_notarial` (1,299; 9.06%). La lectura es coherente con una operación que inicia con canales remotos y escala hacia gestiones presenciales o formales cuando el riesgo lo amerita.
+
+En resultados de gestión, `no_contesta` es el resultado más frecuente (5,010; 34.95%). Luego aparecen `promesa_de_pago` (1,741; 12.15%), `rechazo_pago` (1,592; 11.11%), `en_proceso_interno` (1,403; 9.79%) y `disputa_monto` (1,294; 9.03%). Esta distribución advierte que la contactabilidad y la respuesta del cliente son señales operativas relevantes: no deben leerse como etiquetas finales, sino como información disponible durante el ciclo de cobranza.
 
 ## 9. Selección final sugerida de variables
 

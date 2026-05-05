@@ -1,0 +1,9 @@
+split,target_mora,filas,porcentaje_filas,facturas
+train,on_time,2646,16.816,1773
+train,+30,2962,18.8243,997
+train,+60,4752,30.2002,870
+train,+90,5375,34.1595,630
+test,on_time,671,17.0478,444
+test,+30,751,19.0803,249
+test,+60,1213,30.8181,218
+test,+90,1301,33.0539,157

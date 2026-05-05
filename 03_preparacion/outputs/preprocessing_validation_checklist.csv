@@ -1,0 +1,16 @@
+validacion,estado,evidencia
+Columnas requeridas disponibles,Cumple,[]
+Sin duplicados exactos,Cumple,0
+Sin duplicados factura-corte,Cumple,0
+Target unico por factura,Cumple,0
+Fechas de corte validas,Cumple,0
+Montos positivos,Cumple,0
+Antiguedad positiva,Cumple,0
+Condicion de pago valida,Cumple,0
+Target completo,Cumple,0
+Clases target validas,Cumple,[]
+Sector one-hot valido,Cumple,0
+Sin perfil_pago como predictor,Cumple,False
+"tasa_cumplimiento en rango [0, 1]",Cumple,0
+"tasa_contacto_cliente en rango [0, 1]",Cumple,0
+"tasa_cumpl_promesas en rango [0, 1]",Cumple,0

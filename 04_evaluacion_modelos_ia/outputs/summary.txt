@@ -1,0 +1,59 @@
+=================================================================
+RESUMEN EVALUACION - PRIORIZACION DE COBRANZAS (COMPONENTE 1)
+=================================================================
+
+-- DATOS -------------------------------------------------------
+  Filas totales:           19,671
+  Filas train:             15,735
+  Filas test:              3,936
+  Facturas train:          4,270
+  Facturas test:           1,068
+  Predictores finales:     39
+    - log1p:               12
+    - numericas:           12
+    - binarias:            14
+    - nominales (OHE):     1
+  Clases en target:        4
+
+-- METRICAS TEST ----------------------------------------------
+  Dummy Baseline             acc=0.3305 | bal_acc=0.2500 | f1=0.1242 | auc=0.5000
+  Logistic Regression        acc=0.5673 | bal_acc=0.6006 | f1=0.5700 | auc=0.8131  <<< MEJOR
+  Random Forest              acc=0.5711 | bal_acc=0.5847 | f1=0.5727 | auc=0.8119
+  XGBoost                    acc=0.5257 | bal_acc=0.5437 | f1=0.5346 | auc=0.7732
+
+-- GAPS OVERFITTING --------------------------------------------
+  Dummy Baseline             gap_f1=0.0031 | gap_auc=0.0000 | acceptable_gap
+  Logistic Regression        gap_f1=0.0110 | gap_auc=0.0123 | acceptable_gap
+  Random Forest              gap_f1=0.4273 | gap_auc=0.1881 | possible_overfitting
+  XGBoost                    gap_f1=0.4642 | gap_auc=0.2268 | possible_overfitting
+
+-- CURVA DE APRENDIZAJE ---------------------------------------
+  F1 train final:           0.5817
+  F1 validacion final:      0.5632
+  Gap curva final:          0.0186
+
+-- FAIRNESS GAPS -----------------------------------------------
+  sector_dominante          [accuracy] gap=0.0562 | max=servicios(0.6051) min=retail(0.5489)
+  sector_dominante          [balanced_accuracy] gap=0.0842 | max=servicios(0.6493) min=tecnologia(0.5650)
+  sector_dominante          [f1_macro] gap=0.0870 | max=servicios(0.6222) min=retail(0.5353)
+  sector_dominante          [worst_class_recall] gap=0.2009 | max=construccion(0.4587) min=manufactura(0.2578)
+  sector_dominante          [predicted_high_risk_rate] gap=0.2304 | max=transporte(0.6027) min=retail(0.3723)
+  tiene_garantia            [accuracy] gap=0.0781 | max=1(0.6209) min=0(0.5428)
+  tiene_garantia            [balanced_accuracy] gap=0.0166 | max=1(0.6021) min=0(0.5855)
+  tiene_garantia            [f1_macro] gap=0.0463 | max=1(0.5947) min=0(0.5484)
+  tiene_garantia            [worst_class_recall] gap=0.0517 | max=1(0.4303) min=0(0.3787)
+  tiene_garantia            [predicted_high_risk_rate] gap=0.2248 | max=0(0.5813) min=1(0.3565)
+  tiene_disputa_activa      [accuracy] gap=0.0426 | max=1(0.6057) min=0(0.5632)
+  tiene_disputa_activa      [balanced_accuracy] gap=0.0579 | max=1(0.6504) min=0(0.5925)
+  tiene_disputa_activa      [f1_macro] gap=0.0748 | max=0(0.5650) min=1(0.4902)
+  tiene_disputa_activa      [worst_class_recall] gap=0.0103 | max=0(0.3853) min=1(0.3750)
+  tiene_disputa_activa      [predicted_high_risk_rate] gap=0.3830 | max=1(0.8564) min=0(0.4734)
+
+-- CONCLUSION --------------------------------------------------
+  Modelo seleccionado: 'Logistic Regression'
+  F1-macro test: 0.5700 | AUC-weighted test: 0.8131
+  Diagnostico train-test: 'acceptable_gap', lo que sugiere un ajuste generalizable y robusto.
+  Criterio de seleccion: mayor F1-macro test entre modelos con gap_f1 <= 0.10.
+  El split se leyo desde los archivos oficiales de preparacion por factura_id
+  para garantizar que no haya fuga de datos entre train y test.
+=================================================================

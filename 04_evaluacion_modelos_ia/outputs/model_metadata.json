@@ -1,0 +1,20 @@
+{
+  "best_model": "Logistic Regression",
+  "selection_reason": "mayor F1-macro test entre modelos con gap_f1 <= 0.10",
+  "target_col": "target_mora",
+  "id_col": "factura_id",
+  "client_col": "cliente_id",
+  "feature_count": 39,
+  "class_names": [
+    "+30",
+    "+60",
+    "+90",
+    "on_time"
+  ],
+  "train_rows": 15735,
+  "test_rows": 3936,
+  "train_facturas": 4270,
+  "test_facturas": 1068,
+  "source_dataset": "03_preparacion\\outputs\\features_ml_prepared.csv",
+  "source_features": "03_preparacion\\outputs\\features_selected.csv"
+}

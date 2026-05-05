@@ -1,10 +1,4 @@
-# =============================================================================
-# component2_clustering_clientes.py — Version final robusta y defendible
-# Componente 2 — Clustering de clientes para priorizacion de cobranzas
-# Proyecto: GRUPO_3
-# Ruta destino: GRUPO_3/Evaluacion modelo IA/
-# Salidas:    GRUPO_3/Evaluacion modelo IA/data/
-# =============================================================================
+"""Clustering de clientes para segmentacion de cobranza."""
 
 import sys
 import warnings
@@ -13,9 +7,7 @@ import pandas as pd
 from pathlib import Path
 
 from sklearn.cluster import KMeans, DBSCAN
-from sklearn.preprocessing import RobustScaler, FunctionTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import (
     silhouette_score,
     davies_bouldin_score,
@@ -24,18 +16,14 @@ from sklearn.metrics import (
 
 warnings.filterwarnings("ignore")
 
-# =============================================================================
-# RUTAS ROBUSTAS
-# =============================================================================
 SCRIPT_DIR = Path(__file__).resolve().parent
-DATA_DIR   = SCRIPT_DIR / "data"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+PROJECT_DIR = SCRIPT_DIR.parent
+PREP_DATA_DIR = PROJECT_DIR / "03_preparacion" / "outputs"
+OUTPUT_DIR = SCRIPT_DIR / "outputs"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-INPUT_CSV = DATA_DIR / "features_ml_prepared.csv"
+INPUT_CSV = PREP_DATA_DIR / "features_ml_prepared.csv"
 
-# =============================================================================
-# CONSTANTES CONFIGURABLES
-# =============================================================================
 CLIENT_COL         = "cliente_id"
 TARGET_COL         = "target_mora"          # excluido del clustering
 ID_COL             = "factura_id"
@@ -46,17 +34,15 @@ KMEANS_SEED        = 42
 DBSCAN_EPS         = 0.5
 DBSCAN_MIN_SAMPLES = 5
 
-# Columnas de identificacion y leakage — NUNCA en clustering
 EXCLUDE_ALWAYS = [
     "factura_id", "corte_id", "cliente_id",
     "fecha_emision", "fecha_vencimiento", "fecha_corte",
     "periodo", "fecha_registro", "fecha_ultimo_pago",
     "fecha_primer_mora", "fecha_pago_real",
     "target_mora",          # componente NO supervisado
-    "ultimo_resultado_enc", # nominal — no ordinalizar artificialmente
+    "ultimo_resultado_enc", # nominal, no ordinalizar artificialmente
 ]
 
-# Variables de comportamiento historico priorizadas para clustering
 BEHAVIOR_VARS = [
     "monto",
     "condicion_dias",
@@ -88,7 +74,6 @@ BEHAVIOR_VARS = [
     "ratio_promesas_rotas",
 ]
 
-# Variables sesgadas que se benefician de log1p antes de agregar
 LOG1P_VARS = [
     "monto",
     "monto_promedio_hist",
@@ -102,11 +87,6 @@ LOG1P_VARS = [
     "dias_desde_ultima_gestion",
 ]
 
-# Agregaciones logicas por tipo de variable
-#   continuas:  mean, max
-#   ratios:     mean
-#   conteos:    sum, mean
-#   binarias:   mean (tasa de ocurrencia)
 CONT_VARS = [
     "monto", "condicion_dias", "antiguedad_meses",
     "mora_promedio_hist", "mora_ultimo_tramo",
@@ -183,13 +163,13 @@ def cluster_metrics(X: np.ndarray, labels: np.ndarray, tag: str) -> dict:
 # 1. CARGA
 # =============================================================================
 print("=" * 65)
-print("COMPONENTE 2 — CLUSTERING DE CLIENTES (COBRANZAS)")
+print("COMPONENTE 2 - CLUSTERING DE CLIENTES (COBRANZAS)")
 print("=" * 65)
 
 if not INPUT_CSV.exists():
     sys.exit(
         f"\n[ERROR FATAL] No se encontro:\n  {INPUT_CSV}\n"
-        "Sube features_ml_prepared.csv a la carpeta data/ del script.\n"
+        "Ejecuta primero la fase 03_preparacion.\n"
     )
 
 df = pd.read_csv(INPUT_CSV)
@@ -251,7 +231,7 @@ if not present_behavior:
 # =============================================================================
 # 4. GUARDAR COPIA ORIGINAL ANTES DE LOG1P (para perfiles interpretables)
 # =============================================================================
-df_orig = df.copy()   # sin log1p, sin escalado — solo para cluster_profiles.csv
+df_orig = df.copy()
 
 log1p_apply = [c for c in LOG1P_VARS if c in df.columns]
 if log1p_apply:
@@ -293,10 +273,10 @@ client_agg = client_agg.merge(
     n_facturas_series.reset_index(), on=CLIENT_COL, how="left"
 )
 
-print(f"[OK] Tabla agregada: {client_agg.shape} — "
+print(f"[OK] Tabla agregada: {client_agg.shape} - "
       f"{client_agg[CLIENT_COL].nunique()} clientes unicos")
 
-# ── Tabla agregada RAW (sin log1p) para perfiles interpretables ─────────────
+# Tabla agregada RAW para perfiles interpretables
 if ID_COL in df_orig.columns:
     n_facturas_raw = df_orig.groupby(CLIENT_COL)[ID_COL].nunique().rename("n_facturas_total")
 else:
@@ -316,7 +296,6 @@ print(f"[OK] Tabla raw (sin log1p) para perfiles: {client_agg_raw.shape}")
 client_ids = client_agg[CLIENT_COL].values
 X_raw = client_agg.drop(columns=[CLIENT_COL]).copy()
 
-# ── Imputacion tipificada (no fillna(0) global) ──────────────────────────────
 # Identificar nombres de columnas agregadas por tipo de variable origen
 _cont_agg_cols  = [c for c in X_raw.columns
                    if any(c.startswith(v + "_") for v in present_cont + present_ratio)]
@@ -327,19 +306,19 @@ _bin_agg_cols   = [c for c in X_raw.columns
 _other_cols     = [c for c in X_raw.columns
                    if c not in _cont_agg_cols + _count_agg_cols + _bin_agg_cols]
 
-# Continuas y ratios → mediana
+# Continuas y ratios: mediana
 for c in _cont_agg_cols:
     X_raw[c] = X_raw[c].fillna(X_raw[c].median())
 
-# Conteos → 0 (ausencia equivale a ninguna ocurrencia)
+# Conteos: 0
 for c in _count_agg_cols:
     X_raw[c] = X_raw[c].fillna(0)
 
-# Binarias (tasa de ocurrencia) → 0
+# Binarias: 0
 for c in _bin_agg_cols:
     X_raw[c] = X_raw[c].fillna(0)
 
-# Resto (n_facturas_total u otras) → mediana
+# Resto: mediana
 for c in _other_cols:
     X_raw[c] = X_raw[c].fillna(X_raw[c].median())
 
@@ -361,7 +340,7 @@ scaler  = RobustScaler()
 X_scaled = scaler.fit_transform(X_raw.values)
 
 # =============================================================================
-# 7. KMEANS — BUSQUEDA AUXILIAR DE K OPTIMO (silhouette)
+# 7. KMEANS - BUSQUEDA AUXILIAR DE K OPTIMO
 # =============================================================================
 print("\n[STEP] Busqueda auxiliar de k optimo (silhouette) ...")
 
@@ -437,7 +416,7 @@ if km_metrics_opt:
 metrics_rows += k_search_rows
 
 clustering_metrics_df = pd.DataFrame(metrics_rows)
-# Columna k_evaluated puede no existir en filas principales — rellenar
+# Rellenar k_evaluated en filas principales si hace falta.
 if "k_evaluated" not in clustering_metrics_df.columns:
     clustering_metrics_df["k_evaluated"] = np.nan
 else:
@@ -445,7 +424,7 @@ else:
         clustering_metrics_df["n_clusters"]
     )
 
-metrics_path = DATA_DIR / "clustering_metrics.csv"
+metrics_path = OUTPUT_DIR / "clustering_metrics.csv"
 clustering_metrics_df.to_csv(metrics_path, index=False)
 print(f"\n[SAVED] {metrics_path}")
 
@@ -460,7 +439,7 @@ assignments_df = pd.DataFrame({
 if km_labels_opt is not None:
     assignments_df[f"cluster_kmeans_k{best_k_sil}_optimal"] = km_labels_opt
 
-assignments_path = DATA_DIR / "client_cluster_assignments.csv"
+assignments_path = OUTPUT_DIR / "client_cluster_assignments.csv"
 assignments_df.to_csv(assignments_path, index=False)
 print(f"[SAVED] {assignments_path}")
 
@@ -540,7 +519,7 @@ if "sector_dominante_modal" in profile_df.columns:
 other_cols = [c for c in profile_df.columns if c not in front_cols]
 profile_df = profile_df[front_cols + other_cols]
 
-profiles_path = DATA_DIR / "cluster_profiles.csv"
+profiles_path = OUTPUT_DIR / "cluster_profiles.csv"
 profile_df.to_csv(profiles_path, index=False)
 print(f"[SAVED] {profiles_path}")
 
@@ -548,7 +527,7 @@ print(f"[SAVED] {profiles_path}")
 # 13. RESUMEN FINAL
 # =============================================================================
 print("\n" + "=" * 65)
-print("RESUMEN — COMPONENTE 2 CLUSTERING DE CLIENTES")
+print("RESUMEN - COMPONENTE 2 CLUSTERING DE CLIENTES")
 print("=" * 65)
 print(f"  Clientes analizados:       {len(client_ids):,}")
 print(f"  Features de comportamiento: {len(feature_names)}")
@@ -582,7 +561,7 @@ for _, row in profile_df[["cluster", "n_clientes"]].iterrows():
 
 print("\n  Archivos exportados:")
 for fname in ["clustering_metrics.csv", "client_cluster_assignments.csv", "cluster_profiles.csv"]:
-    p = DATA_DIR / fname
+    p = OUTPUT_DIR / fname
     status = "OK" if p.exists() else "FALTANTE"
     print(f"    [{status}] {p}")
 

@@ -1,0 +1,13 @@
+variable,q1,q3,iqr,limite_inferior,limite_superior,pct_outliers_iqr,asimetria,decision
+monto,6641.34,36312.92,29671.58,-37866.03,80820.29,7.88,1.8134,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+dias_hasta_vence_pos,0.0,33.0,33.0,-49.5,82.5,7.19,1.2774,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+num_promesas_rotas,0.0,4.0,4.0,-6.0,10.0,4.83,1.7725,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+num_no_contesta_cons,0.0,1.0,1.0,-1.5,2.5,4.66,2.1549,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+dias_mora_observable,0.0,30.0,30.0,-45.0,75.0,4.59,1.5213,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+promesas_total,1.0,8.0,7.0,-9.5,18.5,2.75,1.2944,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+ratio_monto,0.5587,1.4885,0.9297,-0.8359,2.8831,1.48,6.1936,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+monto_promedio_hist,7066.31,42436.93,35370.62,-45989.62,95492.86,0.99,1.2307,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+mora_ultimo_tramo,0.0,35.0,35.0,-52.5,87.5,0.41,0.9675,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+mora_promedio_hist,3.75,42.14,38.39,-53.835,99.725,0.19,0.5571,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+num_gestiones_factura,0.0,4.0,4.0,-6.0,10.0,0.0,1.0723,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala
+dias_transcurridos_corte,0.0,93.0,93.0,-139.5,232.5,0.0,0.4242,Conservar; tratar con log1p/RobustScaler si el modelo es sensible a escala

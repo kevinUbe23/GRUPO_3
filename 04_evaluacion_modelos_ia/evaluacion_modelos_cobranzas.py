@@ -1,24 +1,20 @@
-# =============================================================================
-# model_eval_cobranzas.py  —  Versión final robusta y defendible académicamente
-# Componente 1 — Evaluación de modelos para priorización de cobranzas
-# Proyecto: GRUPO_3
-# Ruta destino: GRUPO_3/Evaluación modelo IA/
-# Salidas:    GRUPO_3/Evaluación modelo IA/data/
-# =============================================================================
+"""Evaluacion comparativa de modelos para priorizacion de cobranzas."""
 
-import os
+import json
 import sys
 import warnings
 import numpy as np
 import pandas as pd
+import joblib
 from pathlib import Path
 
-# ── sklearn ──────────────────────────────────────────────────────────────────
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.base import clone
+from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import (
-    LabelEncoder, StandardScaler, OneHotEncoder, FunctionTransformer
+    LabelEncoder, RobustScaler, OneHotEncoder, FunctionTransformer
 )
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
@@ -31,40 +27,33 @@ from sklearn.metrics import (
 
 warnings.filterwarnings("ignore")
 
-# ── XGBoost opcional ─────────────────────────────────────────────────────────
 try:
     from xgboost import XGBClassifier
     XGBOOST_AVAILABLE = True
 except ImportError:
     XGBOOST_AVAILABLE = False
-    print("[INFO] XGBoost no disponible — se omitira.")
+    print("[INFO] XGBoost no disponible; se omitira.")
 
-# =============================================================================
-# RUTAS ROBUSTAS
-# =============================================================================
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
-PREP_DATA_DIR = PROJECT_DIR / "Presentación de la fase de preparación y procesamiento de datos" / "data"
-OUTPUT_DIR = SCRIPT_DIR / "data"
+PREP_DATA_DIR = PROJECT_DIR / "03_preparacion" / "outputs"
+OUTPUT_DIR = SCRIPT_DIR / "outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 INPUT_CSV      = PREP_DATA_DIR / "features_ml_prepared.csv"
 TRAIN_IDS_CSV  = PREP_DATA_DIR / "train_facturas_ids.csv"
 TEST_IDS_CSV   = PREP_DATA_DIR / "test_facturas_ids.csv"
+FEATURES_CSV   = PREP_DATA_DIR / "features_selected.csv"
 
-# =============================================================================
-# CONSTANTES CONFIGURABLES
-# =============================================================================
 TARGET_COL         = "target_mora"
 ID_COL             = "factura_id"
 CLIENT_COL         = "cliente_id"
 SECTOR_OHE_PREFIX  = "sector_"
-SPLIT_TEST_SIZE    = 0.20
 SPLIT_SEED         = 42
-MIN_FAIRNESS_GROUP = 30     # tamano minimo de grupo para analisis de fairness
-MAX_SELECTION_GAP  = 0.10   # gap maximo aceptable para escoger modelo
+MIN_FAIRNESS_GROUP = 30
+MAX_SELECTION_GAP  = 0.10
+LEARNING_CURVE_TRAIN_SIZES = [0.20, 0.40, 0.60, 0.80, 1.00]
 
-# Columnas de identificacion / leakage — NUNCA predictores
 ID_COLS_EXCLUDE = [
     "factura_id", "cliente_id", "corte_id",
     "fecha_emision", "fecha_vencimiento", "fecha_corte",
@@ -72,7 +61,6 @@ ID_COLS_EXCLUDE = [
     "fecha_primer_mora", "fecha_pago_real",
 ]
 
-# Variables de negocio sesgadas — transformacion log1p
 LOG1P_COLS = [
     "monto", "monto_promedio_hist", "ratio_monto",
     "mora_promedio_hist", "mora_ultimo_tramo",
@@ -82,31 +70,7 @@ LOG1P_COLS = [
     "dias_transcurridos_corte",
 ]
 
-# Columnas de fairness a evaluar (si existen en el dataset)
 FAIRNESS_COLS = ["sector_dominante", "tiene_garantia", "tiene_disputa_activa"]
-
-# Universo controlado de features permitidas para evitar leakage accidental
-APPROVED_FEATURE_COLS = [
-    "monto", "condicion_dias", "antiguedad_meses", "tiene_garantia",
-    "sector_retail", "sector_manufactura", "sector_servicios",
-    "sector_construccion", "sector_agro", "sector_tecnologia",
-    "sector_salud", "sector_transporte", "num_facturas_prev",
-    "mora_promedio_hist", "mora_ultimo_tramo", "tasa_cumplimiento",
-    "monto_promedio_hist", "ratio_monto", "moras_consecutivas",
-    "num_gestiones_factura", "dias_desde_ultima_gestion",
-    "dias_hasta_vence", "tasa_contacto_cliente", "ultimo_resultado_enc",
-    "num_no_contesta_cons", "tiene_disputa_activa",
-    "tiene_promesa_activa", "num_promesas_rotas",
-    "tasa_cumpl_promesas", "promesas_total", "sin_gestion_previa",
-    "dias_transcurridos_corte", "esta_vencida_al_corte",
-    "dias_mora_observable", "dias_hasta_vence_pos", "cliente_nuevo",
-    "intensidad_gestion", "friccion_contacto", "ratio_promesas_rotas",
-    "sector_dominante",
-]
-
-# =============================================================================
-# HELPERS
-# =============================================================================
 
 def safe_auc(y_true, y_prob, n_classes):
     """Calcula ROC-AUC de forma segura para binario y multiclase."""
@@ -183,14 +147,93 @@ def make_ohe() -> OneHotEncoder:
         return OneHotEncoder(handle_unknown="ignore", sparse=False)
 
 
+def class_metadata(target_encoder, y_values):
+    """Devuelve etiquetas y nombres de clases en el espacio usado por sklearn."""
+    if target_encoder is not None:
+        labels = list(range(len(target_encoder.classes_)))
+        names = [str(c) for c in target_encoder.classes_]
+    else:
+        labels = sorted(pd.Series(y_values).dropna().unique().tolist())
+        names = [str(c) for c in labels]
+    return labels, names, dict(zip(labels, names))
+
+
+def high_risk_label_set(class_name_map: dict) -> set:
+    """Identifica clases de mora severa para tasas de seleccion en fairness."""
+    return {
+        label for label, name in class_name_map.items()
+        if str(name).strip().lower() in {"+60", "+90", "60", "90"}
+    }
+
+
+def build_learning_curve(
+    base_model,
+    X_train_matrix,
+    y_train_values,
+    train_factura_ids,
+    factura_targets,
+    train_sizes,
+    seed,
+):
+    """Calcula curva de aprendizaje con validacion interna separada por factura."""
+    splitter = StratifiedShuffleSplit(n_splits=1, test_size=0.20, random_state=seed)
+    split_iter = splitter.split(factura_targets[[ID_COL]], factura_targets[TARGET_COL])
+    fit_idx, val_idx = next(split_iter)
+    fit_ids = factura_targets.iloc[fit_idx][ID_COL].astype(str).to_numpy()
+    val_ids = set(factura_targets.iloc[val_idx][ID_COL].astype(str).tolist())
+
+    val_mask = np.array([fid in val_ids for fid in train_factura_ids])
+    X_val = X_train_matrix[val_mask]
+    y_val = y_train_values[val_mask]
+    rows = []
+
+    for frac in train_sizes:
+        subset_n = max(2, int(round(len(fit_ids) * frac)))
+        subset_targets = factura_targets[factura_targets[ID_COL].isin(fit_ids)].copy()
+        if subset_n < len(subset_targets):
+            subset_splitter = StratifiedShuffleSplit(
+                n_splits=1, train_size=subset_n, random_state=seed + int(frac * 100)
+            )
+            sampled_idx, _ = next(
+                subset_splitter.split(subset_targets[[ID_COL]], subset_targets[TARGET_COL])
+            )
+            sampled_ids = set(subset_targets.iloc[sampled_idx][ID_COL].astype(str).tolist())
+        else:
+            sampled_ids = set(subset_targets[ID_COL].astype(str).tolist())
+
+        train_mask = np.array([fid in sampled_ids for fid in train_factura_ids])
+        X_fit = X_train_matrix[train_mask]
+        y_fit = y_train_values[train_mask]
+
+        model = clone(base_model)
+        model.fit(X_fit, y_fit)
+        y_fit_pred = model.predict(X_fit)
+        y_val_pred = model.predict(X_val)
+        rows.append({
+            "train_fraction": frac,
+            "train_rows": int(train_mask.sum()),
+            "train_facturas": len(sampled_ids),
+            "validation_rows": int(val_mask.sum()),
+            "f1_macro_train": f1_score(y_fit, y_fit_pred, average="macro", zero_division=0),
+            "f1_macro_validation": f1_score(y_val, y_val_pred, average="macro", zero_division=0),
+            "balanced_accuracy_train": balanced_accuracy_score(y_fit, y_fit_pred),
+            "balanced_accuracy_validation": balanced_accuracy_score(y_val, y_val_pred),
+        })
+
+    return pd.DataFrame(rows)
+
+
 # =============================================================================
 # 1. CARGA Y VALIDACIONES BASICAS
 # =============================================================================
 print("=" * 65)
-print("COMPONENTE 1 — EVALUACION DE MODELOS DE COBRANZAS")
+print("COMPONENTE 1 - EVALUACION DE MODELOS DE COBRANZAS")
 print("=" * 65)
 
-missing_inputs = [p for p in [INPUT_CSV, TRAIN_IDS_CSV, TEST_IDS_CSV] if not p.exists()]
+missing_inputs = [
+    p for p in [INPUT_CSV, TRAIN_IDS_CSV, TEST_IDS_CSV, FEATURES_CSV]
+    if not p.exists()
+]
 if missing_inputs:
     missing_txt = "\n".join(f"  - {p}" for p in missing_inputs)
     sys.exit(
@@ -199,7 +242,9 @@ if missing_inputs:
     )
 
 df = pd.read_csv(INPUT_CSV)
+official_feature_cols = pd.read_csv(FEATURES_CSV)["feature"].dropna().astype(str).tolist()
 print(f"[OK] features_ml_prepared.csv cargado: {df.shape}")
+print(f"[OK] features_selected.csv cargado: {len(official_feature_cols)} predictores oficiales")
 
 # Validar columnas obligatorias
 for col in [TARGET_COL, ID_COL]:
@@ -239,7 +284,7 @@ if (
     print(f"[OK] Target codificado con LabelEncoder. Clases: {list(target_le.classes_)}")
 
 n_classes = int(df[TARGET_COL].nunique())
-print(f"[OK] Clases en target: {n_classes} — {sorted(df[TARGET_COL].unique())}")
+print(f"[OK] Clases en target: {n_classes} - {sorted(df[TARGET_COL].unique())}")
 
 # =============================================================================
 # 3. CONSTRUIR sector_dominante SI NO EXISTE
@@ -309,87 +354,70 @@ print(f"  Facturas train: {df_train[ID_COL].nunique():,}  |  Facturas test: {df_
 
 y_train = df_train[TARGET_COL].to_numpy()
 y_test  = df_test[TARGET_COL].to_numpy()
+train_factura_targets = (
+    df_train[[ID_COL, TARGET_COL]]
+    .drop_duplicates(subset=[ID_COL])
+    .reset_index(drop=True)
+)
 
-# =============================================================================
-# 5. CLASIFICAR COLUMNAS DE FEATURES
-# =============================================================================
 exclude_always = list(set(
     [c for c in ID_COLS_EXCLUDE if c in df.columns] + [TARGET_COL]
 ))
 
-# Columnas categoricas nominales — OHE (NO LabelEncoder automatico)
-nominal_cols = [
-    c for c in ["ultimo_resultado_enc", "sector_dominante"]
-    if c in df.columns and c not in exclude_always
-]
-
-# Columnas log1p: existen, son numericas, no son nominales ni excluidas
-log1p_present = [
-    c for c in LOG1P_COLS
-    if c in df.columns
-    and c not in exclude_always
-    and c not in nominal_cols
-    and pd.api.types.is_numeric_dtype(df[c])
-]
-
-# Columnas binarias
-binary_cols = [
-    c for c in df.columns
-    if c not in exclude_always
-    and c not in nominal_cols
-    and c not in log1p_present
-    and pd.api.types.is_numeric_dtype(df[c])
-    and is_binary_col(df[c])
-]
-
-# Numericas restantes
-numeric_other = [
-    c for c in df.columns
-    if c not in exclude_always
-    and c not in nominal_cols
-    and c not in log1p_present
-    and c not in binary_cols
-    and pd.api.types.is_numeric_dtype(df[c])
-]
-
-feature_cols = log1p_present + numeric_other + binary_cols + nominal_cols
-
-# Endurecer el esquema de features para evitar leakage por columnas nuevas.
-approved_feature_cols = [c for c in APPROVED_FEATURE_COLS if c in feature_cols]
-unexpected_numeric = sorted([
-    c for c in feature_cols
-    if c not in approved_feature_cols and pd.api.types.is_numeric_dtype(df[c])
-])
-if unexpected_numeric:
-    print(
-        f"[WARN] {len(unexpected_numeric)} columnas numericas no aprobadas fueron excluidas: "
-        f"{unexpected_numeric}"
+missing_features = [c for c in official_feature_cols if c not in df.columns]
+if missing_features:
+    sys.exit(
+        "\n[ERROR FATAL] features_selected.csv contiene columnas que no existen en el dataset:\n"
+        f"{missing_features}\n"
     )
 
+blocked_features = [c for c in official_feature_cols if c in exclude_always]
+if blocked_features:
+    sys.exit(
+        "\n[ERROR FATAL] features_selected.csv contiene columnas de trazabilidad/leakage:\n"
+        f"{blocked_features}\n"
+    )
+
+feature_cols = official_feature_cols.copy()
+
 nominal_cols = [
-    c for c in ["ultimo_resultado_enc", "sector_dominante"]
-    if c in approved_feature_cols
+    c for c in ["ultimo_resultado_enc"]
+    if c in feature_cols
 ]
+
 log1p_present = [
     c for c in LOG1P_COLS
-    if c in approved_feature_cols
+    if c in feature_cols
     and c not in nominal_cols
     and pd.api.types.is_numeric_dtype(df[c])
 ]
+
 binary_cols = [
-    c for c in approved_feature_cols
+    c for c in feature_cols
     if c not in nominal_cols
     and c not in log1p_present
     and pd.api.types.is_numeric_dtype(df[c])
     and is_binary_col(df[c])
 ]
+
 numeric_other = [
-    c for c in approved_feature_cols
+    c for c in feature_cols
     if c not in nominal_cols
     and c not in log1p_present
     and c not in binary_cols
     and pd.api.types.is_numeric_dtype(df[c])
 ]
+
+unsupported_cols = sorted([
+    c for c in feature_cols
+    if c not in log1p_present + numeric_other + binary_cols + nominal_cols
+])
+if unsupported_cols:
+    sys.exit(
+        "\n[ERROR FATAL] Predictores oficiales con tipo no soportado para el pipeline:\n"
+        f"{unsupported_cols}\n"
+    )
+
 feature_cols = log1p_present + numeric_other + binary_cols + nominal_cols
 
 # Eliminar columnas con varianza cero en train
@@ -411,19 +439,14 @@ print(f"  binary:   {len(binary_cols)}")
 print(f"  nominal:  {len(nominal_cols)}")
 print(f"  TOTAL:    {len(feature_cols)}")
 
-# =============================================================================
-# 6. PREPROCESSORS
-# =============================================================================
-
-# ── Transformador log1p con escalado (para LR) ──────────────────────────────
 log1p_scaled = Pipeline([
     ("imputer", SimpleImputer(strategy="median")),
     ("log1p",   FunctionTransformer(np.log1p, validate=True)),
-    ("scaler",  StandardScaler()),
+    ("scaler",  RobustScaler()),
 ])
 numeric_scaled = Pipeline([
     ("imputer", SimpleImputer(strategy="median")),
-    ("scaler",  StandardScaler()),
+    ("scaler",  RobustScaler()),
 ])
 binary_pipe = Pipeline([
     ("imputer", SimpleImputer(strategy="most_frequent")),
@@ -443,7 +466,6 @@ preprocessor_scaled = ColumnTransformer(
     remainder="drop"
 )
 
-# ── Transformador sin escalado (para arboles) ────────────────────────────────
 log1p_noscale = Pipeline([
     ("imputer", SimpleImputer(strategy="median")),
     ("log1p",   FunctionTransformer(np.log1p, validate=True)),
@@ -496,6 +518,7 @@ MODELS = {
         "y_tr": y_train,
         "y_te": y_test,
         "is_xgb": False,
+        "preprocessor": preprocessor_scaled,
     },
     "Logistic Regression": {
         "model": LogisticRegression(
@@ -507,6 +530,7 @@ MODELS = {
         "y_tr": y_train,
         "y_te": y_test,
         "is_xgb": False,
+        "preprocessor": preprocessor_scaled,
     },
     "Random Forest": {
         "model": RandomForestClassifier(
@@ -518,6 +542,7 @@ MODELS = {
         "y_tr": y_train,
         "y_te": y_test,
         "is_xgb": False,
+        "preprocessor": preprocessor_tree,
     },
 }
 
@@ -539,15 +564,16 @@ if XGBOOST_AVAILABLE:
         "y_tr": y_train_xgb,
         "y_te": y_test_xgb,
         "is_xgb": True,
+        "preprocessor": preprocessor_tree,
     }
 
 # =============================================================================
-# 9. ENTRENAMIENTO Y METRICAS — formato wide (una fila por modelo)
+# 9. ENTRENAMIENTO Y METRICAS
 # =============================================================================
 benchmark_rows  = []
 trained_results = {}
 
-print("\n── ENTRENAMIENTO ────────────────────────────────────────────────")
+print("\n-- ENTRENAMIENTO ------------------------------------------------")
 
 for name, cfg in MODELS.items():
     model   = cfg["model"]
@@ -556,6 +582,7 @@ for name, cfg in MODELS.items():
     y_tr    = cfg["y_tr"]
     y_te    = cfg["y_te"]
     is_xgb  = cfg["is_xgb"]
+    preprocessor = cfg["preprocessor"]
 
     print(f"\n  [{name}] entrenando ...")
     try:
@@ -598,6 +625,9 @@ for name, cfg in MODELS.items():
         "y_true_te": y_true_te,
         "y_pred_te": y_pred_te,
         "y_prob_te": y_prob_te,
+        "preprocessor": preprocessor,
+        "X_tr": X_tr,
+        "y_true_tr": y_true_tr,
     }
     print(f"  [OK] f1_train={m_tr['f1_macro']:.4f} | f1_test={m_te['f1_macro']:.4f}")
 
@@ -686,14 +716,10 @@ print(f"\n[OK] Mejor modelo seleccionado: {best_model_name}")
 report_path = OUTPUT_DIR / "classification_report_best_model.txt"
 confusion_matrix_path = OUTPUT_DIR / "confusion_matrix_best_model.csv"
 class_metrics_path = OUTPUT_DIR / "class_metrics_best_model.csv"
+learning_curve_df = pd.DataFrame()
 if best_model_name and best_model_name in trained_results:
     res    = trained_results[best_model_name]
-    if target_le is not None:
-        class_labels = list(range(n_classes))
-        class_names = [str(c) for c in target_le.classes_]
-    else:
-        class_labels = sorted(pd.Series(res["y_true_te"]).dropna().unique().tolist())
-        class_names = [str(c) for c in class_labels]
+    class_labels, class_names, class_name_map = class_metadata(target_le, res["y_true_te"])
     report = classification_report(
         res["y_true_te"],
         res["y_pred_te"],
@@ -726,7 +752,7 @@ if best_model_name and best_model_name in trained_results:
     class_metrics_df = class_metrics_df[
         ["class_label", "class_name", "precision", "recall", "f1-score", "support"]
     ]
-    print(f"\n── Classification Report [{best_model_name}] ──")
+    print(f"\n-- Classification Report [{best_model_name}] --")
     print(report)
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(f"Modelo: {best_model_name}\n\n{report}")
@@ -735,6 +761,83 @@ if best_model_name and best_model_name in trained_results:
     print(f"[SAVED] {report_path}")
     print(f"[SAVED] {confusion_matrix_path}")
     print(f"[SAVED] {class_metrics_path}")
+
+    artifact = {
+        "model_name": best_model_name,
+        "model": res["model"],
+        "preprocessor": res["preprocessor"],
+        "feature_cols": feature_cols,
+        "target_encoder": target_le,
+        "xgb_label_encoder": xgb_le if best_model_name == "XGBoost" else None,
+    }
+    model_path = OUTPUT_DIR / "best_model_artifact.joblib"
+    feature_schema_path = OUTPUT_DIR / "model_feature_schema.csv"
+    metadata_path = OUTPUT_DIR / "model_metadata.json"
+    joblib.dump(artifact, model_path)
+    pd.DataFrame({"feature": feature_cols}).to_csv(feature_schema_path, index=False)
+    metadata = {
+        "best_model": best_model_name,
+        "selection_reason": selection_reason,
+        "target_col": TARGET_COL,
+        "id_col": ID_COL,
+        "client_col": CLIENT_COL,
+        "feature_count": len(feature_cols),
+        "class_names": class_names,
+        "train_rows": int(len(df_train)),
+        "test_rows": int(len(df_test)),
+        "train_facturas": int(df_train[ID_COL].nunique()),
+        "test_facturas": int(df_test[ID_COL].nunique()),
+        "source_dataset": str(INPUT_CSV.relative_to(PROJECT_DIR)),
+        "source_features": str(FEATURES_CSV.relative_to(PROJECT_DIR)),
+    }
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2, ensure_ascii=False)
+    print(f"[SAVED] {model_path}")
+    print(f"[SAVED] {feature_schema_path}")
+    print(f"[SAVED] {metadata_path}")
+
+    learning_curve_df = build_learning_curve(
+        base_model=res["model"],
+        X_train_matrix=res["X_tr"],
+        y_train_values=res["y_true_tr"],
+        train_factura_ids=df_train[ID_COL].astype(str).to_numpy(),
+        factura_targets=train_factura_targets,
+        train_sizes=LEARNING_CURVE_TRAIN_SIZES,
+        seed=SPLIT_SEED,
+    )
+    learning_curve_path = OUTPUT_DIR / "learning_curve_best_model.csv"
+    learning_curve_df.to_csv(learning_curve_path, index=False)
+    print(f"[SAVED] {learning_curve_path}")
+
+    try:
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(figsize=(7, 4))
+        ax.plot(
+            learning_curve_df["train_fraction"],
+            learning_curve_df["f1_macro_train"],
+            marker="o",
+            label="train",
+        )
+        ax.plot(
+            learning_curve_df["train_fraction"],
+            learning_curve_df["f1_macro_validation"],
+            marker="o",
+            label="validacion",
+        )
+        ax.set_title(f"Curva de aprendizaje - {best_model_name}")
+        ax.set_xlabel("Fraccion de facturas de entrenamiento")
+        ax.set_ylabel("F1-macro")
+        ax.set_ylim(0, 1)
+        ax.grid(alpha=0.3)
+        ax.legend()
+        fig.tight_layout()
+        learning_curve_png = OUTPUT_DIR / "learning_curve_best_model.png"
+        fig.savefig(learning_curve_png, dpi=150)
+        plt.close(fig)
+        print(f"[SAVED] {learning_curve_png}")
+    except Exception as exc:
+        print(f"[WARN] No se pudo guardar grafico de curva de aprendizaje: {exc}")
 
 # =============================================================================
 # 13. FAIRNESS ANALYSIS
@@ -755,10 +858,10 @@ if best_model_name and best_model_name in trained_results:
     df_eval = df_test.copy().reset_index(drop=True)
     df_eval["_y_pred"] = res["y_pred_te"]
     df_eval["_y_true"] = res["y_true_te"]
-    class_labels = list(range(n_classes))
-    class_name_map = {label: str(label) for label in class_labels}
-    if target_le is not None:
-        class_name_map = {label: target_le.classes_[label] for label in class_labels}
+    class_labels, class_names, class_name_map = class_metadata(target_le, res["y_true_te"])
+    high_risk_labels = high_risk_label_set(class_name_map)
+    df_eval["_actual_high_risk"] = df_eval["_y_true"].isin(high_risk_labels)
+    df_eval["_predicted_high_risk"] = df_eval["_y_pred"].isin(high_risk_labels)
 
     for fc in fairness_present:
         for group_val, gdf in df_eval.groupby(fc):
@@ -781,6 +884,8 @@ if best_model_name and best_model_name in trained_results:
                 "f1_macro":          f1_score(g_true, g_pred, average="macro", zero_division=0),
                 "worst_class_recall": worst_recall_value,
                 "worst_recall_class": worst_recall_class,
+                "actual_high_risk_rate": gdf["_actual_high_risk"].mean(),
+                "predicted_high_risk_rate": gdf["_predicted_high_risk"].mean(),
             })
 
         # Gap por columna
@@ -788,7 +893,13 @@ if best_model_name and best_model_name in trained_results:
         if len(fc_subset) < 2:
             continue
         fc_df = pd.DataFrame(fc_subset)
-        for metric in ["accuracy", "balanced_accuracy", "f1_macro", "worst_class_recall"]:
+        for metric in [
+            "accuracy",
+            "balanced_accuracy",
+            "f1_macro",
+            "worst_class_recall",
+            "predicted_high_risk_rate",
+        ]:
             idx_max = fc_df[metric].idxmax()
             idx_min = fc_df[metric].idxmin()
             gap_summary_rows.append({
@@ -834,10 +945,10 @@ def fmt(val, dec=4):
 
 lines = [
     "=" * 65,
-    "RESUMEN EVALUACION — PRIORIZACION DE COBRANZAS (COMPONENTE 1)",
+    "RESUMEN EVALUACION - PRIORIZACION DE COBRANZAS (COMPONENTE 1)",
     "=" * 65,
     "",
-    "── DATOS ──────────────────────────────────────────────────────",
+    "-- DATOS -------------------------------------------------------",
     f"  Filas totales:           {len(df):,}",
     f"  Filas train:             {len(df_train):,}",
     f"  Filas test:              {len(df_test):,}",
@@ -850,7 +961,7 @@ lines = [
     f"    - nominales (OHE):     {len(nominal_cols)}",
     f"  Clases en target:        {n_classes}",
     "",
-    "── METRICAS TEST ───────────────────────────────────────────────",
+    "-- METRICAS TEST ----------------------------------------------",
 ]
 
 for _, row in benchmark_df.iterrows():
@@ -863,15 +974,26 @@ for _, row in benchmark_df.iterrows():
         f"  {row['model']:<26} acc={acc} | bal_acc={bal} | f1={f1} | auc={auc}{mark}"
     )
 
-lines += ["", "── GAPS OVERFITTING ─────────────────────────────────────────────"]
+lines += ["", "-- GAPS OVERFITTING --------------------------------------------"]
 for _, row in gap_df.iterrows():
     lines.append(
         f"  {row['model']:<26} gap_f1={fmt(row['gap_f1_macro'])} "
         f"| gap_auc={fmt(row['gap_auc'])} | {row['diagnosis']}"
     )
 
+if not learning_curve_df.empty:
+    last_curve = learning_curve_df.iloc[-1]
+    curve_gap = last_curve["f1_macro_train"] - last_curve["f1_macro_validation"]
+    lines += [
+        "",
+        "-- CURVA DE APRENDIZAJE ---------------------------------------",
+        f"  F1 train final:           {fmt(last_curve['f1_macro_train'])}",
+        f"  F1 validacion final:      {fmt(last_curve['f1_macro_validation'])}",
+        f"  Gap curva final:          {fmt(curve_gap)}",
+    ]
+
 if not gap_summary_df.empty:
-    lines += ["", "── FAIRNESS GAPS ─────────────────────────────────────────────────"]
+    lines += ["", "-- FAIRNESS GAPS -----------------------------------------------"]
     for _, row in gap_summary_df.iterrows():
         lines.append(
             f"  {row['fairness_col']:<25} [{row['metric']}] "
@@ -880,10 +1002,10 @@ if not gap_summary_df.empty:
             f"min={row['min_group']}({fmt(row['min_value'])})"
         )
 else:
-    lines += ["", "── FAIRNESS GAPS ─────────────────────────────────────────────────",
+    lines += ["", "-- FAIRNESS GAPS -----------------------------------------------",
               "  Sin grupos suficientes para analisis de fairness."]
 
-lines += ["", "── CONCLUSION ───────────────────────────────────────────────────"]
+lines += ["", "-- CONCLUSION --------------------------------------------------"]
 if best_model_name and best_bm_row is not None and best_gap_row is not None:
     f1_v   = best_bm_row.get("f1_macro_test",     np.nan)
     auc_v  = best_bm_row.get("auc_weighted_test", np.nan)
@@ -927,6 +1049,11 @@ for fname in [
     "classification_report_best_model.txt",
     "confusion_matrix_best_model.csv",
     "class_metrics_best_model.csv",
+    "learning_curve_best_model.csv",
+    "learning_curve_best_model.png",
+    "best_model_artifact.joblib",
+    "model_feature_schema.csv",
+    "model_metadata.json",
 ]:
     p = OUTPUT_DIR / fname
     status = "OK" if p.exists() else "FALTANTE"

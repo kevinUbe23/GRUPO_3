@@ -1,0 +1,14 @@
+feature,feature_label,reason_label,weight,direction,interpretation
+mora_promedio_hist_mean,mora promedio hist prom.,mora historica,1.4,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+mora_ultimo_tramo_mean,mora ultimo tramo prom.,mora reciente,1.4,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+dias_mora_observable_mean,dias mora observable prom.,dias de mora observables,1.3,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+moras_consecutivas_mean,moras consecutivas prom.,moras consecutivas,1.3,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+ratio_promesas_rotas_mean,ratio promesas rotas prom.,promesas rotas,1.2,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+friccion_contacto_mean,friccion contacto prom.,friccion de contacto,1.1,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+num_no_contesta_cons_mean,num no contesta cons prom.,no contestacion,0.9,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+tiene_disputa_activa_mean,tiene disputa activa prom.,disputas activas,0.8,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+esta_vencida_al_corte_mean,esta vencida al corte prom.,facturas vencidas al corte,0.8,mayor_valor_mayor_riesgo,Aumenta riesgo de cobranza y reduce estrellas.
+tasa_cumplimiento_mean,tasa cumplimiento prom.,bajo cumplimiento historico,1.4,mayor_valor_menor_riesgo,Mejor comportamiento; se invierte para el score de riesgo.
+tasa_contacto_cliente_mean,tasa contacto cliente prom.,baja contactabilidad,1.0,mayor_valor_menor_riesgo,Mejor comportamiento; se invierte para el score de riesgo.
+tasa_cumpl_promesas_mean,tasa cumpl promesas prom.,bajo cumplimiento de promesas,1.2,mayor_valor_menor_riesgo,Mejor comportamiento; se invierte para el score de riesgo.
+dias_hasta_vence_pos_mean,dias hasta vence pos prom.,poco margen preventivo antes de vencer,0.6,mayor_valor_menor_riesgo,Mejor comportamiento; se invierte para el score de riesgo.

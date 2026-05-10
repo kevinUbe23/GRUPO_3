@@ -2,7 +2,12 @@
 
 ## 1. Proposito de la fase
 
-La fase de preparacion toma el dataset analitico `features_ml.csv` y lo transforma en una base lista para modelado. Esta etapa no entrena modelos; su responsabilidad es dejar los datos validados, ordenados, separados correctamente en train/test y documentados para que la siguiente fase pueda entrenar sin introducir fuga de informacion.
+La fase de preparacion toma el dataset analitico `features_ml.csv` y lo transforma en bases listas para los dos componentes principales del sistema:
+
+1. Prediccion supervisada de mora por factura y corte temporal.
+2. Clustering de clientes a partir de comportamiento agregado por `cliente_id`.
+
+Esta etapa no entrena modelos; su responsabilidad es dejar los datos validados, ordenados, separados correctamente cuando aplica y documentados para que la siguiente fase pueda entrenar o evaluar sin introducir fuga de informacion.
 
 La regla metodologica central viene del EDA: la unidad de negocio es la `factura`, pero `features_ml.csv` tiene varias filas por factura porque cada fila representa un corte temporal de scoring. Por eso, la preparacion no puede separar train/test por fila. Si una misma factura aparece en train y test, el modelo podria aprender informacion del mismo caso que luego se evalua, generando una evaluacion artificialmente optimista. Para evitarlo, el split se hace por `factura_id`.
 
@@ -50,7 +55,7 @@ Tambien define listas de columnas esperadas:
 - Columnas numericas de conteo o tasa.
 - Columna categorica `ultimo_resultado_enc`.
 
-Esta separacion no es solo orden cosmetico. Sirve para que cada tipo de variable reciba un tratamiento compatible con su significado.
+Esta separacion no es solo orden cosmetico. Sirve para que cada tipo de variable reciba un tratamiento compatible con su significado y para distinguir que variables pueden alimentar prediccion por factura y cuales pueden agregarse para clustering por cliente.
 
 ### 3.2 Carga y validacion estructural
 
@@ -166,6 +171,22 @@ Por eso, el `preprocessing_pipeline.joblib` se interpreta como un pipeline repro
 
 Lo que si es obligatorio es la consistencia: el preprocesamiento usado para entrenar el modelo elegido debe ser exactamente el mismo que se use luego para predecir nuevas facturas.
 
+### 3.8 Preparacion base para clustering de clientes
+
+Como el sistema tambien tiene un componente de clustering, la preparacion construye una tabla adicional a nivel `cliente_id`. Esta tabla no usa `target_mora` como variable de entrada y no aplica escalado ni clustering; solo deja una base agregada, interpretable y reproducible para que la fase de evaluacion pruebe algoritmos.
+
+La tabla se exporta como `client_features_clustering_base.csv` y contiene 200 clientes con 49 variables numericas de comportamiento, mas columnas de trazabilidad/perfil. Las agregaciones siguen esta logica:
+
+| Tipo de variable | Agregacion | Interpretacion |
+|---|---|---|
+| Continuas | `mean`, `max` | Nivel promedio y extremo observado por cliente. |
+| Ratios/tasas | `mean` | Comportamiento promedio del cliente. |
+| Conteos | `sum`, `mean` | Volumen acumulado y frecuencia promedio. |
+| Binarias | `mean` | Tasa de ocurrencia del evento por cliente. |
+| Sector | moda | Perfil interpretativo, no predictor numerico obligatorio. |
+
+Tambien se exportan `client_clustering_features_selected.csv` y `client_clustering_columns_summary.csv`. Con esto, la fase 4 ya no necesita decidir desde cero como agregar por cliente; solo debe decidir transformaciones de modelo, escalado, algoritmo y numero de clusters.
+
 ## 4. Como queda el dataset preparado
 
 El archivo final `features_ml_prepared.csv` tiene:
@@ -193,6 +214,15 @@ El target es:
 
 Las features son las 39 columnas listadas en `features_selected.csv`.
 
+Para clustering, la fase tambien deja:
+
+| Metrica | Valor |
+|---|---:|
+| Clientes | 200 |
+| Columnas totales | 51 |
+| Features numericas de clustering | 49 |
+| Nulos restantes | 0 |
+
 ## 5. Para que sirve cada output
 
 Esta es la parte mas importante para la siguiente fase. No todos los outputs se usan igual: algunos son datos para entrenar, otros son validaciones, otros son documentacion tecnica.
@@ -204,6 +234,9 @@ Esta es la parte mas importante para la siguiente fase. No todos los outputs se 
 | `test_facturas_ids.csv` | Lista de facturas asignadas a test y su target. | Permite reconstruir `df_test` sin contaminar train/test. |
 | `features_selected.csv` | Lista de las 39 columnas que pueden usarse como predictores antes de transformar. | Sirve para crear `X_train` y `X_test` sin incluir IDs, fecha ni target. |
 | `processed_feature_names.csv` | Nombres de las 47 columnas despues del preprocesamiento. | Sirve para interpretar matrices ya transformadas por el pipeline. |
+| `client_features_clustering_base.csv` | Dataset agregado por `cliente_id`, sin target y sin escalado. | Base oficial para clustering de clientes. |
+| `client_clustering_features_selected.csv` | Lista de las 49 variables numericas que puede usar el clustering. | Evita que la fase 4 use columnas de perfil o trazabilidad como predictores. |
+| `client_clustering_columns_summary.csv` | Rol, tipo, nulos y cardinalidad de la tabla de clientes. | Sirve para revisar rapidamente la base del componente no supervisado. |
 | `prepared_columns_summary.csv` | Rol, tipo, nulos y cantidad de valores unicos por columna. | Sirve para revisar rapidamente que es feature, trazabilidad o target. |
 | `target_distribution_train_test.csv` | Distribucion del target por split, en filas y facturas. | Sirve para entender el desbalance y justificar metricas como F1-macro. |
 | `preprocessing_validation_checklist.csv` | Validaciones estructurales de entrada. | Sirve para demostrar que la base paso controles minimos de calidad. |
@@ -221,6 +254,11 @@ En terminos practicos, para entrenar modelos lo minimo es:
 4. `features_selected.csv`
 
 Los demas archivos sirven para trazabilidad, validacion, interpretacion o reutilizacion del pipeline.
+
+Para clustering, lo minimo es:
+
+1. `client_features_clustering_base.csv`
+2. `client_clustering_features_selected.csv`
 
 ## 6. Como se usaria en modelado
 
@@ -335,8 +373,16 @@ La recomendacion final para modelado es:
 4. Elegir el pipeline junto con el modelo, no por separado.
 5. Para uso diario, aplicar a cada nueva factura la misma construccion de features y el mismo preprocesamiento del modelo finalmente seleccionado.
 
+Para clustering, la fase siguiente debe:
+
+1. Leer `client_features_clustering_base.csv`.
+2. Leer `client_clustering_features_selected.csv`.
+3. Excluir `cliente_id` y columnas de perfil interpretativo como predictores.
+4. Ajustar transformaciones de escala/log solo dentro de la fase de modelado o evaluacion.
+5. Comparar numero de clusters y algoritmos sin reconstruir la agregacion base por cliente.
+
 ## 11. Conclusion
 
-La fase de preparacion deja el dataset en condiciones tecnicas para modelado. Su aporte principal no es solo "limpiar datos", sino fijar reglas metodologicas: separar por factura, preservar trazabilidad, excluir variables que producirian fuga, convertir nulos estructurales en informacion util, conservar outliers relevantes y documentar cada artefacto necesario para continuar.
+La fase de preparacion deja los datasets en condiciones tecnicas para los dos componentes del sistema. Su aporte principal no es solo "limpiar datos", sino fijar reglas metodologicas: separar por factura para prediccion, preparar una base agregada por cliente para clustering, preservar trazabilidad, excluir variables que producirian fuga, convertir nulos estructurales en informacion util, conservar outliers relevantes y documentar cada artefacto necesario para continuar.
 
-Con esta fase, modelado ya no tiene que decidir desde cero que columnas usar ni como separar train/test. Debe consumir los outputs oficiales, entrenar modelos y concentrarse en comparar desempeno, estabilidad e interpretabilidad.
+Con esta fase, modelado ya no tiene que decidir desde cero que columnas usar, como separar train/test para prediccion ni como construir la base inicial de clientes para clustering. Debe consumir los outputs oficiales, entrenar modelos y concentrarse en comparar desempeno, estabilidad, fairness, interpretabilidad y segmentacion.

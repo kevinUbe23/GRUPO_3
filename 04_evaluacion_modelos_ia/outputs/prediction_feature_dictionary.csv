@@ -1,0 +1,40 @@
+feature,group,business_meaning,how_to_read_it
+monto,numerica,Valor monetario de la factura.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+monto_promedio_hist,numerica,Monto promedio historico del cliente.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+ratio_monto,numerica,Monto actual comparado contra el monto historico del cliente.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+mora_promedio_hist,numerica,Mora promedio historica del cliente.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+mora_ultimo_tramo,numerica,Mora mas reciente observada en el historial.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+num_gestiones_factura,numerica,Gestiones realizadas sobre la factura hasta el corte.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+dias_hasta_vence_pos,numerica,Dias restantes si no ha vencido; cero si ya vencio.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+dias_mora_observable,numerica,Dias de mora observables al corte.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+num_no_contesta_cons,numerica,No contestaciones consecutivas.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+num_promesas_rotas,numerica,Promesas de pago incumplidas.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+promesas_total,numerica,Total historico de promesas.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+dias_transcurridos_corte,numerica,Dias transcurridos desde emision hasta el corte.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+condicion_dias,numerica,Plazo pactado de pago en dias.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+antiguedad_meses,numerica,Antiguedad del cliente en meses.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+num_facturas_prev,numerica,Cantidad de facturas previas del cliente.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+tasa_cumplimiento,numerica,Proporcion historica de cumplimiento de pago.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+moras_consecutivas,numerica,Cantidad de moras consecutivas previas.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+dias_desde_ultima_gestion,numerica,Dias desde la ultima gestion; -1 significa sin gestion previa.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+dias_hasta_vence,numerica,Dias restantes hasta vencimiento; negativo significa vencida.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+tasa_contacto_cliente,numerica,Tasa historica de contacto efectivo.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+tasa_cumpl_promesas,numerica,Proporcion de promesas cumplidas.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+intensidad_gestion,numerica,Gestiones relativas al tiempo transcurrido.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+friccion_contacto,numerica,Dificultad de contacto observada.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+ratio_promesas_rotas,numerica,Promesas rotas sobre promesas totales.,Valores mayores o menores cambian la probabilidad segun el patron aprendido.
+tiene_garantia,binaria,Indica si la factura o cliente tiene garantia.,El modelo aprende si el evento aumenta o reduce la probabilidad de cada clase.
+sector_retail,sector,Marca one-hot de sector: retail.,Captura diferencias historicas de comportamiento por industria.
+sector_manufactura,sector,Marca one-hot de sector: manufactura.,Captura diferencias historicas de comportamiento por industria.
+sector_servicios,sector,Marca one-hot de sector: servicios.,Captura diferencias historicas de comportamiento por industria.
+sector_construccion,sector,Marca one-hot de sector: construccion.,Captura diferencias historicas de comportamiento por industria.
+sector_agro,sector,Marca one-hot de sector: agro.,Captura diferencias historicas de comportamiento por industria.
+sector_tecnologia,sector,Marca one-hot de sector: tecnologia.,Captura diferencias historicas de comportamiento por industria.
+sector_salud,sector,Marca one-hot de sector: salud.,Captura diferencias historicas de comportamiento por industria.
+sector_transporte,sector,Marca one-hot de sector: transporte.,Captura diferencias historicas de comportamiento por industria.
+tiene_disputa_activa,binaria,Indica disputa activa.,El modelo aprende si el evento aumenta o reduce la probabilidad de cada clase.
+tiene_promesa_activa,binaria,Indica promesa de pago activa.,El modelo aprende si el evento aumenta o reduce la probabilidad de cada clase.
+sin_gestion_previa,binaria,Marca el primer corte sin gestion previa.,El modelo aprende si el evento aumenta o reduce la probabilidad de cada clase.
+esta_vencida_al_corte,binaria,Indica si ya estaba vencida en el corte.,El modelo aprende si el evento aumenta o reduce la probabilidad de cada clase.
+cliente_nuevo,binaria,Cliente sin facturas previas.,El modelo aprende si el evento aumenta o reduce la probabilidad de cada clase.
+ultimo_resultado_enc,categorica,Resultado codificado de la ultima gestion.,Se transforma con one-hot; cada resultado puede empujar una clase distinta.

@@ -16,6 +16,8 @@
   "facturas_overlap_train_test": 0,
   "feature_count_unprocessed": 39,
   "feature_count_processed": 47,
+  "client_clustering_rows": 200,
+  "client_clustering_feature_count": 49,
   "excluded_from_features": [
     "factura_id",
     "cliente_id",

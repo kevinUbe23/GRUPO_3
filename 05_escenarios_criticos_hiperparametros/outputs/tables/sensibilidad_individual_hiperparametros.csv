@@ -1,0 +1,5 @@
+hiperparametro,mejor_valor_promedio,f1_macro_promedio_mejor_valor,rango_f1_macro_promedio,std_promedio,no_linealidad_aproximada,zona_saturacion,lectura
+C,10.0,0.5658925423952639,0.02484634675067754,0.0034322520861095407,0.00680464950432228,zona_estable_en_1.0_a_100.0,Controla regularizacion: valores bajos simplifican el modelo; valores altos reducen penalizacion y pueden estabilizarse si no mejoran F1.
+class_weight,balanced,0.5610470443334551,0.00402935949018457,0.00989068689556641,0.0,categoria_sin_orden_numerico,Ajusta el peso de clases; es critico si mejora recall macro sin aumentar demasiado el gap train-valid.
+max_iter,200.0,0.5590619141481766,5.909911962764802e-05,0.010344189156346025,0.0,sin_evidencia_suficiente,"Debe leerse como condicion de convergencia; si F1 no cambia al subirlo, hay saturacion computacional."
+tol,0.0001,0.5603693559736721,0.002673982770618588,0.01023213891000171,0.0,sin_evidencia_suficiente,Controla criterio de parada; cambios pequenos con mismo F1 indican que el solver ya encontro una zona estable.

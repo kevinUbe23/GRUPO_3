@@ -1,0 +1,5 @@
+decision,criterio,valor
+mantener_modelo_base_como_referencia,la configuracion ajustada no mejora claramente el test externo,baseline=0.5700; tuning=0.5697
+priorizar_C_en_busquedas_futuras,mayor score de importancia e interacciones mas fuertes,C
+preferir_configuraciones_convergidas,la diferencia de validacion frente al maximo fue menor que la tolerancia definida,experimento_seleccionado=40
+monitorear_cartera_critica,mayor degradacion observada en escenarios de drift,drift_cartera_critica_q75

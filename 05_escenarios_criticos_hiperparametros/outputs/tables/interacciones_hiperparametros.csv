@@ -1,0 +1,7 @@
+hiperparametro_a,hiperparametro_b,f1_macro_max_interaccion,f1_macro_min_interaccion,rango_interaccion,mejor_valor_a,mejor_valor_b,lectura
+C,class_weight,0.566920779471322,0.5344878103594629,0.03243296911185911,100.0,balanced,Interaccion relevante
+C,tol,0.5670542481948969,0.5406923303929065,0.026361917801990375,10.0,0.0001,Interaccion relevante
+C,max_iter,0.5660386278854572,0.5410461956445863,0.024992432240870888,10.0,200,Interaccion relevante
+class_weight,tol,0.5621474515924091,0.5554441093316062,0.006703342260802936,balanced,0.0001,Interaccion baja o zona estable
+class_weight,max_iter,0.5611985953602672,0.5568070346968309,0.004391560663436267,balanced,500,Interaccion baja o zona estable
+max_iter,tol,0.5604284550932996,0.5576953732030535,0.002733081890246125,200,0.0001,Interaccion baja o zona estable

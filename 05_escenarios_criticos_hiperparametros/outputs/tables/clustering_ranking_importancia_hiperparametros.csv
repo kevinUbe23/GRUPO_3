@@ -1,0 +1,9 @@
+hiperparametro,score_importancia,mejor_valor_promedio,lectura
+n_clusters,0.3619529433454458,2.0,Mayor rango implica mayor sensibilidad del componente de clustering a este parametro.
+scaler,0.2093076737982494,robust,Mayor rango implica mayor sensibilidad del componente de clustering a este parametro.
+min_samples,0.17181525856966073,5.0,Mayor rango implica mayor sensibilidad del componente de clustering a este parametro.
+algorithm,0.12168617199339418,KMeans,Mayor rango implica mayor sensibilidad del componente de clustering a este parametro.
+eps,0.10742394919567974,3.0,Mayor rango implica mayor sensibilidad del componente de clustering a este parametro.
+use_log1p,0.014766856522201832,False,Mayor rango implica mayor sensibilidad del componente de clustering a este parametro.
+init,0.001856273503363426,k-means++,Mayor rango implica mayor sensibilidad del componente de clustering a este parametro.
+n_init,0.0012597850961927892,20.0,Mayor rango implica mayor sensibilidad del componente de clustering a este parametro.

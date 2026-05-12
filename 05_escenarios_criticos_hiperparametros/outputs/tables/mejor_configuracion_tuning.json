@@ -1,0 +1,19 @@
+{
+  "accuracy_external_test": 0.5668191056910569,
+  "balanced_accuracy_external_test": 0.5992597744748874,
+  "precision_macro_external_test": 0.562232170953157,
+  "recall_macro_external_test": 0.5992597744748874,
+  "f1_macro_external_test": 0.5696548702115731,
+  "auc_weighted_external_test": 0.8137014455869748,
+  "C": 100.0,
+  "class_weight": "balanced",
+  "max_iter": 500,
+  "tol": 0.0001,
+  "selected_experiment_id": 40,
+  "selected_validation_f1_macro": 0.5682932409740227,
+  "selected_validation_balanced_accuracy": 0.5992449273289152,
+  "selected_inner_converged": true,
+  "n_iter_max": 239,
+  "converged_external_fit": true,
+  "selection_rule": "mejor configuracion convergida dentro de 0.005 F1 del mejor score de validacion"
+}

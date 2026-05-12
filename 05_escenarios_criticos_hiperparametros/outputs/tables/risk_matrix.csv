@@ -1,0 +1,7 @@
+escenario,severidad,metrica_afectada,mitigacion
+Missing dirigido gestion,Alta,F1-macro,Alerta de caida CRM y revision humana
+Drift temporal futuro,Alta,Recall +90,Monitorear PSI/KS mensual y reentrenar por ventana
+Drift cartera critica Q75,Alta,F1-macro y recall,Politicas especificas para cartera concentrada
+Inputs extremos,Critica,Estabilidad tecnica,Validadores de contrato antes de inferencia
+Volumen 100x,Media,Latencia,Batch asincrono y medicion p95
+Columna requerida faltante,Critica,Fallo de schema,Validacion estricta de schema

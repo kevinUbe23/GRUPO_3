@@ -1,0 +1,4 @@
+decision,criterio,valor
+mantener_kmeans_k3_como_segmentacion_principal,k=2 maximiza silhouette pero separa casi toda la base en un grupo; k=3 conserva lectura operativa ya documentada en fase 4,clustering_metrics.csv fase 4 y sensibilidad fase 5
+no_tratar_clustering_como_prediccion,"no hay target ni F1; se evalua cohesion, separacion, ruido y balance de tamanos","silhouette, davies_bouldin, calinski_harabasz, noise_ratio, min_cluster_share"
+descartar_dbscan_como_modelo_principal,la sensibilidad a eps/min_samples genera mucho ruido o clusters insuficientes en la mayoria de configuraciones,noise_ratio_promedio=0.82

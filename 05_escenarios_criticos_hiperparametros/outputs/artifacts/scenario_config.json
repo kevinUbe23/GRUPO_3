@@ -1,0 +1,31 @@
+{
+  "source_dataset": "03_preparacion\\outputs\\features_ml_prepared.csv",
+  "source_model_artifact": "04_evaluacion_modelos_ia\\outputs\\best_model_artifact.joblib",
+  "feature_count": 39,
+  "seeds": [
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110
+  ],
+  "noise_levels": [
+    0.05,
+    0.1,
+    0.2
+  ],
+  "missing_levels": [
+    0.05,
+    0.15,
+    0.3
+  ],
+  "psi_thresholds": {
+    "moderate": 0.1,
+    "high": 0.25
+  }
+}

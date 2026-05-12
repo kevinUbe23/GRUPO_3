@@ -1,0 +1,16 @@
+{
+  "train_facturas_total": 4270,
+  "test_facturas_total": 1068,
+  "inner_train_facturas": 3202,
+  "inner_valid_facturas": 1068,
+  "interseccion_inner": 0,
+  "feature_count": 39,
+  "target_classes": [
+    "+30",
+    "+60",
+    "+90",
+    "on_time"
+  ],
+  "external_test_usage": "solo_comparacion_final_no_usado_para_rankear_configuraciones",
+  "selection_rule": "mejor configuracion convergida dentro de 0.005 F1 del mejor score de validacion"
+}

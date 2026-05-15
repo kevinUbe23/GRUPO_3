@@ -1,0 +1,1 @@
+"""Configuracion central del backend."""

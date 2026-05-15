@@ -6,6 +6,12 @@ joblib==1.5.3
 xgboost
 faker
 seaborn
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+pydantic-settings
+pytest
 
 # Util para trabajar los notebooks en el mismo entorno.
 jupyterlab

@@ -1,0 +1,20 @@
+[project]
+name = "cobranzas-backend"
+version = "0.1.0"
+description = "Backend FastAPI para sistema inteligente de priorizacion de cobranzas"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "sqlalchemy>=2.0.0",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.3.0",
+  "pandas>=2.2.0",
+  "numpy>=1.26.0",
+  "joblib>=1.4.0",
+  "scikit-learn>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -1,0 +1,56 @@
+import type {
+  Customer,
+  DashboardSummary,
+  Interaction,
+  Invoice,
+  Prediction,
+  PrioritizedInvoice,
+  RecalculateResult,
+  Segment
+} from "./types";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers,
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const detail = typeof body.detail === "string" ? body.detail : response.statusText;
+    throw new Error(detail);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export const api = {
+  initDb: () => request<Record<string, number>>("/admin/init-db", { method: "POST" }),
+  dashboard: (fechaCorte: string) =>
+    request<DashboardSummary>(`/dashboard/summary?fecha_corte=${fechaCorte}`),
+  prioritized: (limit = 50) =>
+    request<PrioritizedInvoice[]>(`/invoices/prioritized?limit=${limit}`),
+  recalculate: (fechaCorte: string, limit = 100) =>
+    request<RecalculateResult>("/scoring/recalculate", {
+      method: "POST",
+      body: JSON.stringify({ fecha_corte: fechaCorte, limit, persist: true })
+    }),
+  invoice: (facturaId: string) => request<Invoice>(`/invoices/${facturaId}`),
+  interactions: (facturaId: string) =>
+    request<Interaction[]>(`/invoices/${facturaId}/interactions`),
+  customer: (clienteId: string) => request<Customer>(`/customers/${clienteId}`),
+  segment: (clienteId: string) => request<Segment>(`/customers/${clienteId}/segment`),
+  score: (facturaId: string, fechaCorte: string, persist = true) =>
+    request<Prediction>(`/invoices/${facturaId}/score`, {
+      method: "POST",
+      body: JSON.stringify({ fecha_corte: fechaCorte, persist })
+    })
+};

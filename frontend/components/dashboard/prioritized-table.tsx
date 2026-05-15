@@ -1,0 +1,246 @@
+"use client";
+
+import { BarChart3, Gauge, Search } from "lucide-react";
+
+import { Stars } from "@/components/dashboard/stars";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious
+} from "@/components/ui/pagination";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { compactDate, money, percent, riskClass } from "@/lib/formatters";
+import type { PrioritizedInvoice } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+type PrioritizedTableProps = {
+  rows: PrioritizedInvoice[];
+  totalRows: number;
+  query: string;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  selected: PrioritizedInvoice | null;
+  onQueryChange: (value: string) => void;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (value: number) => void;
+  onSelect: (row: PrioritizedInvoice) => void;
+};
+
+function visiblePages(currentPage: number, totalPages: number) {
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, start + 4);
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
+export function PrioritizedTable({
+  rows,
+  totalRows,
+  query,
+  currentPage,
+  totalPages,
+  pageSize,
+  selected,
+  onQueryChange,
+  onPageChange,
+  onPageSizeChange,
+  onSelect
+}: PrioritizedTableProps) {
+  const hasRows = rows.length > 0;
+  const pages = visiblePages(currentPage, totalPages);
+  const canGoPrevious = currentPage > 1;
+  const canGoNext = currentPage < totalPages && totalRows > 0;
+
+  function handlePageClick(event: React.MouseEvent<HTMLAnchorElement>, page: number) {
+    event.preventDefault();
+    onPageChange(page);
+  }
+
+  function handleRowKeyDown(event: React.KeyboardEvent<HTMLTableRowElement>, row: PrioritizedInvoice) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    onSelect(row);
+  }
+
+  return (
+    <Card id="cola" className="min-w-0">
+      <CardHeader className="gap-3 border-b p-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="size-5 text-muted-foreground" />
+          <CardTitle className="text-base">Cola priorizada</CardTitle>
+          <Badge variant="secondary">{totalRows.toLocaleString("es-EC")}</Badge>
+        </div>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <label className="relative block md:w-80">
+            <Search className="pointer-events-none absolute left-2.5 top-2 size-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Buscar factura, cliente, sector"
+              aria-label="Buscar factura, cliente o sector"
+              className="pl-8"
+            />
+          </label>
+          <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
+            <SelectTrigger className="w-full md:w-32">
+              <SelectValue aria-label={`${pageSize} filas`} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {[10, 15, 25, 50].map((value) => (
+                  <SelectItem key={value} value={String(value)}>
+                    {value} filas
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        <div className="max-h-[640px] overflow-auto scrollbar-thin">
+          <Table className="min-w-[980px]">
+            <TableHeader className="sticky top-0 z-10 bg-muted">
+              <TableRow>
+                <TableHead>Factura</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Monto</TableHead>
+                <TableHead>Riesgo</TableHead>
+                <TableHead>Atraso</TableHead>
+                <TableHead>Rating</TableHead>
+                <TableHead>Accion</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow
+                  key={`${row.factura_id}-${row.fecha_corte}`}
+                  onClick={() => onSelect(row)}
+                  onKeyDown={(event) => handleRowKeyDown(event, row)}
+                  tabIndex={0}
+                  aria-selected={selected?.factura_id === row.factura_id}
+                  className={cn(
+                    "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    selected?.factura_id === row.factura_id && "bg-accent hover:bg-accent"
+                  )}
+                >
+                  <TableCell className="align-top">
+                    <div className="font-semibold text-foreground">{row.factura_id}</div>
+                    <div className="text-xs text-muted-foreground">Vence {compactDate(row.fecha_vencimiento)}</div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="max-w-[220px] truncate font-medium text-foreground">{row.cliente_nombre}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.sector} / {row.cliente_id}
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top font-medium">{money.format(row.monto)}</TableCell>
+                  <TableCell className="align-top">
+                    <Badge variant="outline" className={cn("font-semibold", riskClass(row.priority_score_0_100))}>
+                      {row.priority_score_0_100.toFixed(1)}
+                    </Badge>
+                    <div className="mt-1 text-xs text-muted-foreground">{row.predicted_label_usuario}</div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="font-medium">{percent.format(row.any_late_probability)}</div>
+                    <div className="text-xs text-muted-foreground">Alto {percent.format(row.high_risk_probability)}</div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <Stars value={row.rating_estrellas} />
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="max-w-[220px] truncate font-medium">{row.accion_sugerida}</div>
+                    <div className="text-xs text-muted-foreground">Corte {compactDate(row.fecha_corte)}</div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {!hasRows && (
+            <Empty className="min-h-[300px] border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Gauge />
+                </EmptyMedia>
+                <EmptyTitle>Sin cartera priorizada</EmptyTitle>
+                <EmptyDescription>
+                  Inicializa la base y recalcula la cartera para la fecha seleccionada.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 border-t p-3 md:flex-row md:items-center md:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Pagina {totalRows ? currentPage : 0} de {totalPages} / {totalRows.toLocaleString("es-EC")} resultados
+          </p>
+          <Pagination className="mx-0 w-auto justify-start md:justify-end">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  text="Anterior"
+                  aria-disabled={!canGoPrevious}
+                  tabIndex={canGoPrevious ? 0 : -1}
+                  className={cn(!canGoPrevious && "pointer-events-none opacity-50")}
+                  onClick={(event) => {
+                    if (!canGoPrevious) {
+                      event.preventDefault();
+                      return;
+                    }
+                    handlePageClick(event, currentPage - 1);
+                  }}
+                />
+              </PaginationItem>
+              {pages.map((page) => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    href="#"
+                    isActive={page === currentPage}
+                    onClick={(event) => handlePageClick(event, page)}
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  text="Siguiente"
+                  aria-disabled={!canGoNext}
+                  tabIndex={canGoNext ? 0 : -1}
+                  className={cn(!canGoNext && "pointer-events-none opacity-50")}
+                  onClick={(event) => {
+                    if (!canGoNext) {
+                      event.preventDefault();
+                      return;
+                    }
+                    handlePageClick(event, currentPage + 1);
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

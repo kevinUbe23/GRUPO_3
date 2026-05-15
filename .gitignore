@@ -6,6 +6,20 @@ resumen*
 # Cache de Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
+
+# Artefactos locales del backend
+backend/data/
+
+# Frontend local
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# Skills locales de agentes
+.agents/
+skills-lock.json
 
 # Checkpoints de notebooks
 .ipynb_checkpoints/

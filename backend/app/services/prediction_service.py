@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import joblib
 import numpy as np
@@ -163,6 +163,37 @@ class PredictionService:
         if factura is None:
             raise ValueError(f"No existe la factura {factura_id}")
         return factura.cliente_id
+
+    def predict_invoice_daily(
+        self,
+        db: Session,
+        factura_id: str,
+        fecha_corte: date,
+    ) -> list[PredictionOut]:
+        factura = db.get(Factura, factura_id)
+        if factura is None:
+            raise ValueError(f"No existe la factura {factura_id}")
+        if fecha_corte < factura.fecha_emision:
+            raise ValueError("fecha_corte no puede ser anterior a fecha_emision")
+
+        end_date = fecha_corte
+        if factura.fecha_pago_real and factura.fecha_pago_real <= fecha_corte:
+            end_date = factura.fecha_pago_real
+
+        current_date = factura.fecha_emision
+        predictions: list[PredictionOut] = []
+        while current_date <= end_date:
+            predictions.append(
+                self.predict_invoice(
+                    db,
+                    factura_id=factura_id,
+                    fecha_corte=current_date,
+                    persist=False,
+                    use_prepared_snapshot=False,
+                )
+            )
+            current_date += timedelta(days=1)
+        return predictions
 
     @staticmethod
     def _estado_factura_al_corte(factura: Factura, fecha_corte: date, features: dict) -> str:

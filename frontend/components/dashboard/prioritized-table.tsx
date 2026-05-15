@@ -32,6 +32,10 @@ import { cn } from "@/lib/utils";
 type PrioritizedTableProps = {
   rows: PrioritizedInvoice[];
   totalRows: number;
+  title?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  mode?: "preventive" | "overdue";
   query: string;
   scoreFilter: "todos" | "critico" | "alto" | "medio" | "bajo";
   currentPage: number;
@@ -64,6 +68,10 @@ function predictionClass(label: string) {
 export function PrioritizedTable({
   rows,
   totalRows,
+  title = "Cola preventiva",
+  emptyTitle = "Sin cartera priorizada",
+  emptyDescription = "Inicializa la base y recalcula la cartera para la fecha seleccionada.",
+  mode = "preventive",
   query,
   scoreFilter,
   currentPage,
@@ -91,6 +99,7 @@ export function PrioritizedTable({
     "Indice operativo de 0 a 100 para ordenar la cola: 0-39 baja, 40-59 media, 60-79 alta y 80+ critica. No es una probabilidad; indica que tan pronto conviene gestionar la factura.";
   const lateDescription =
     "Probabilidad de que la factura no se pague dentro del plazo pactado. Suma atraso leve, alto y critico. La mora grave se revisa en el detalle y equivale a atraso alto + critico.";
+  const isOverdue = mode === "overdue";
 
   function handlePageClick(event: React.MouseEvent<HTMLAnchorElement>, page: number) {
     event.preventDefault();
@@ -108,7 +117,7 @@ export function PrioritizedTable({
       <CardHeader className="gap-3 border-b p-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 className="size-5 text-muted-foreground" />
-          <CardTitle className="text-base">Cola priorizada</CardTitle>
+          <CardTitle className="text-base">{title}</CardTitle>
           <Badge variant="secondary">{totalRows.toLocaleString("es-EC")}</Badge>
         </div>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
@@ -162,6 +171,7 @@ export function PrioritizedTable({
                 <TableHead>Factura</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Monto</TableHead>
+                {isOverdue && <TableHead>Dias mora</TableHead>}
                 <TableHead>Prediccion</TableHead>
                 <TableHead>
                   <span className="inline-flex items-center gap-1">
@@ -203,27 +213,48 @@ export function PrioritizedTable({
                     </div>
                   </TableCell>
                   <TableCell className="align-top font-medium">{money.format(row.monto)}</TableCell>
+                  {isOverdue && (
+                    <TableCell className="align-top font-medium">
+                      {row.dias_mora_observable.toLocaleString("es-EC")}
+                    </TableCell>
+                  )}
                   <TableCell className="align-top">
-                    <Badge variant="outline" className={cn("max-w-[190px] justify-start truncate", predictionClass(row.predicted_label_usuario))}>
-                      {row.predicted_label_usuario}
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "max-w-[190px] justify-start truncate",
+                        predictionClass(row.predicted_label_usuario ?? "Sin prediccion")
+                      )}
+                    >
+                      {row.predicted_label_usuario ?? "Sin prediccion"}
                     </Badge>
                   </TableCell>
                   <TableCell className="align-top">
-                    <Badge variant="outline" className={cn("font-semibold", priorityClass(row.priority_score_0_100))}>
-                      {row.priority_score_0_100.toFixed(1)}
-                    </Badge>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {priorityLevel(row.priority_score_0_100)} / {priorityActionHint(row.priority_score_0_100)}
+                    {row.priority_score_0_100 === null || row.priority_score_0_100 === undefined ? (
+                      <Badge variant="secondary">Sin score</Badge>
+                    ) : (
+                      <>
+                        <Badge variant="outline" className={cn("font-semibold", priorityClass(row.priority_score_0_100))}>
+                          {row.priority_score_0_100.toFixed(1)}
+                        </Badge>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {priorityLevel(row.priority_score_0_100)} / {priorityActionHint(row.priority_score_0_100)}
+                        </div>
+                      </>
+                    )}
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="font-medium">
+                      {row.any_late_probability === null || row.any_late_probability === undefined
+                        ? "Sin prediccion"
+                        : percent.format(row.any_late_probability)}
                     </div>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <div className="font-medium">{percent.format(row.any_late_probability)}</div>
                   </TableCell>
                   <TableCell className="align-top">
                     <Stars value={row.rating_estrellas} />
                   </TableCell>
                   <TableCell className="align-top">
-                    <div className="max-w-[220px] truncate font-medium">{row.accion_sugerida}</div>
+                    <div className="max-w-[220px] truncate font-medium">{row.accion_sugerida ?? "Sin accion activa"}</div>
                     <div className="text-xs text-muted-foreground">Corte {compactDate(row.fecha_corte)}</div>
                   </TableCell>
                 </TableRow>
@@ -237,10 +268,8 @@ export function PrioritizedTable({
                 <EmptyMedia variant="icon">
                   <Gauge />
                 </EmptyMedia>
-                <EmptyTitle>Sin cartera priorizada</EmptyTitle>
-                <EmptyDescription>
-                  Inicializa la base y recalcula la cartera para la fecha seleccionada.
-                </EmptyDescription>
+                <EmptyTitle>{emptyTitle}</EmptyTitle>
+                <EmptyDescription>{emptyDescription}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           )}

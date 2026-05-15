@@ -22,6 +22,35 @@ CONTACT_RESULTS = {
     "confirma_pago",
 }
 PROMISE_STATES = {"activa", "cumplida", "incumplida", "reemplazada", "cancelada"}
+CHANNEL_LABELS = {
+    "whatsapp": "WhatsApp",
+    "email": "Correo electronico",
+    "llamada": "Llamada telefonica",
+    "visita": "Visita presencial",
+    "carta_notarial": "Carta notarial",
+}
+RESULT_LABELS = {
+    "pagado": "Pago reportado en gestion",
+    "promesa_de_pago": "Promesa de pago",
+    "disputa_monto": "Disputa por monto",
+    "rechazo_pago": "Rechazo de pago",
+    "en_proceso_interno": "En proceso interno del cliente",
+    "confirma_pago": "Confirma intencion de pago",
+    "no_contesta": "No contesta",
+    "numero_invalido": "Numero invalido",
+    "cliente_ausente": "Cliente ausente",
+}
+NO_PAYMENT_REASON_LABELS = {
+    "flujo_caja": "Restriccion de flujo de caja",
+    "disputa_monto": "Disputa sobre el monto",
+    "problema_facturacion": "Problema de facturacion",
+    "proceso_interno": "Proceso interno pendiente",
+    "en_proceso_interno": "Pago en proceso interno",
+    "no_recibio_factura": "No recibio factura",
+    "sin_respuesta": "Sin respuesta del cliente",
+    "otro": "Otro motivo",
+}
+NON_PAYMENT_REASON_LABELS = NO_PAYMENT_REASON_LABELS
 
 
 def _next_id(db: Session, model, id_col: str, prefix: str) -> str:
@@ -32,6 +61,27 @@ def _next_id(db: Session, model, id_col: str, prefix: str) -> str:
 def _validate_invoice_state(state: str) -> None:
     if state not in VALID_INVOICE_STATES:
         raise ValueError(f"estado_factura invalido: {state}")
+
+
+def cutoff_invoice_state(factura: Factura, fecha_corte: date) -> str:
+    if factura.fecha_pago_real and factura.fecha_pago_real <= fecha_corte:
+        return "paid"
+    if fecha_corte > factura.fecha_vencimiento:
+        return "overdue"
+    return "preventive"
+
+
+def observable_days_late(factura: Factura, fecha_corte: date) -> int:
+    end_date = min(fecha_corte, factura.fecha_pago_real) if factura.fecha_pago_real else fecha_corte
+    return max((end_date - factura.fecha_vencimiento).days, 0)
+
+
+def invoice_status_at_cutoff(factura: Factura, fecha_corte: date) -> str:
+    if factura.estado_factura in {"anulada", "castigada"}:
+        return factura.estado_factura
+    if factura.fecha_pago_real and factura.fecha_pago_real <= fecha_corte:
+        return "pagada"
+    return "abierta"
 
 
 def _validate_invoice_dates(factura: Factura) -> None:
@@ -158,6 +208,42 @@ def create_interaction(db: Session, payload: GestionCreate) -> GestionCobranza:
     db.commit()
     db.refresh(gestion)
     return gestion
+
+
+def interaction_payload(gestion: GestionCobranza) -> dict:
+    resultado_label = RESULT_LABELS.get(gestion.resultado, gestion.resultado.replace("_", " ").title())
+    canal_label = CHANNEL_LABELS.get(gestion.canal, gestion.canal.replace("_", " ").title())
+    motivo_label = (
+        NO_PAYMENT_REASON_LABELS.get(gestion.motivo_no_pago, gestion.motivo_no_pago.replace("_", " ").title())
+        if gestion.motivo_no_pago
+        else None
+    )
+    if gestion.resultado == "pagado":
+        interpretacion = "La gestion reporta pago; el cierre real se determina con fecha_pago_real de la factura."
+    elif gestion.contacto_exitoso:
+        interpretacion = f"Contacto exitoso por {canal_label}: {resultado_label.lower()}."
+    else:
+        interpretacion = f"Gestion sin contacto efectivo por {canal_label}: {resultado_label.lower()}."
+    if gestion.dias_mora_en_gestion > 0:
+        interpretacion += f" Se realizo con {gestion.dias_mora_en_gestion} dias de mora observable."
+    else:
+        interpretacion += " Se realizo antes o en la fecha de vencimiento."
+    if motivo_label:
+        interpretacion += f" Motivo reportado: {motivo_label.lower()}."
+
+    return {
+        "gestion_id": gestion.gestion_id,
+        "fecha_gestion": gestion.fecha_gestion,
+        "canal": gestion.canal,
+        "canal_label": canal_label,
+        "contacto_exitoso": gestion.contacto_exitoso,
+        "resultado": gestion.resultado,
+        "resultado_label": resultado_label,
+        "motivo_no_pago": gestion.motivo_no_pago,
+        "motivo_no_pago_label": motivo_label,
+        "interpretacion": interpretacion,
+        "dias_mora_en_gestion": gestion.dias_mora_en_gestion,
+    }
 
 
 def create_payment_promise(db: Session, payload: PromesaCreate) -> PromesaPago:

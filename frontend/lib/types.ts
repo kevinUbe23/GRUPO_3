@@ -13,19 +13,24 @@ export type PrioritizedInvoice = {
   cliente_nombre: string;
   sector: string;
   monto: number;
+  fecha_emision: string;
   fecha_vencimiento: string;
+  fecha_pago_real: string | null;
+  dias_mora_real: number | null;
+  dias_mora_observable: number;
   estado_factura: string;
   estado_factura_actual: string;
+  estado_corte: "preventive" | "overdue" | "paid";
   fecha_corte: string;
-  predicted_label_usuario: string;
-  prob_pago_plazo: number;
-  prob_atraso_leve: number;
-  prob_atraso_alto: number;
-  prob_atraso_critico: number;
-  any_late_probability: number;
-  high_risk_probability: number;
-  priority_score_0_100: number;
-  accion_sugerida: string;
+  predicted_label_usuario: string | null;
+  prob_pago_plazo: number | null;
+  prob_atraso_leve: number | null;
+  prob_atraso_alto: number | null;
+  prob_atraso_critico: number | null;
+  any_late_probability: number | null;
+  high_risk_probability: number | null;
+  priority_score_0_100: number | null;
+  accion_sugerida: string | null;
   rating_estrellas: number | null;
 };
 
@@ -69,9 +74,13 @@ export type Interaction = {
   gestion_id: string;
   fecha_gestion: string;
   canal: string;
+  canal_label: string;
   contacto_exitoso: boolean;
   resultado: string;
+  resultado_label: string;
   motivo_no_pago: string | null;
+  motivo_no_pago_label: string | null;
+  interpretacion: string;
   dias_mora_en_gestion: number;
 };
 
@@ -121,6 +130,29 @@ export type PredictionHistoryItem = {
   fecha_pago_real: string | null;
   dias_mora_real: number | null;
   target_mora_simulado: string | null;
+};
+
+export type PredictionDailyItem = {
+  factura_id: string;
+  cliente_id: string;
+  fecha_corte: string;
+  predicted_label_usuario: string;
+  prob_pago_plazo: number;
+  prob_atraso_leve: number;
+  prob_atraso_alto: number;
+  prob_atraso_critico: number;
+  any_late_probability: number;
+  high_risk_probability: number;
+  priority_score_0_100: number;
+  accion_sugerida: {
+    codigo: string;
+    nombre: string;
+    canal_recomendado: string;
+    severidad: number;
+    motivo: string;
+    regla: string;
+  };
+  feature_source: string;
 };
 
 export type RecalculateResult = {

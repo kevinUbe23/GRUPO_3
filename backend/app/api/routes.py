@@ -23,14 +23,18 @@ from app.schemas import (
     ClienteOut,
     DashboardSummary,
     FacturaCreate,
+    FacturaListOut,
     FacturaOut,
     FacturaUpdate,
     GestionCreate,
-    GestionOut,
     InitDbResult,
+    GestionOut,
+    InteractionOut,
     PaymentCreate,
+    PredictionDailyOut,
     PredictionOut,
     PredictionHistoryOut,
+    PrioritizedInvoiceOut,
     PromesaCreate,
     PromesaOut,
     PromesaUpdate,
@@ -45,6 +49,10 @@ from app.services.operations_service import (
     create_invoice,
     create_interaction,
     create_payment_promise,
+    cutoff_invoice_state,
+    interaction_payload,
+    invoice_status_at_cutoff,
+    observable_days_late,
     register_payment,
     update_invoice,
     update_payment_promise,
@@ -53,6 +61,37 @@ from app.services.prediction_service import get_prediction_service
 
 
 router = APIRouter()
+
+
+def _invoice_list_payload(factura: Factura, fecha_corte: date | None) -> dict:
+    fecha_pago_visible = (
+        factura.fecha_pago_real
+        if fecha_corte is None or (factura.fecha_pago_real and factura.fecha_pago_real <= fecha_corte)
+        else None
+    )
+    dias_mora_real_visible = factura.dias_mora_real if fecha_pago_visible else None
+    saldo_pendiente_visible = factura.saldo_pendiente if fecha_corte is None or fecha_pago_visible else factura.monto
+    target_mora_visible = factura.target_mora_simulado if fecha_corte is None or fecha_pago_visible else None
+    payload = {
+        "factura_id": factura.factura_id,
+        "cliente_id": factura.cliente_id,
+        "fecha_emision": factura.fecha_emision,
+        "fecha_vencimiento": factura.fecha_vencimiento,
+        "fecha_pago_real": fecha_pago_visible,
+        "condicion_dias": factura.condicion_dias,
+        "monto": factura.monto,
+        "saldo_pendiente": saldo_pendiente_visible,
+        "estado_factura": invoice_status_at_cutoff(factura, fecha_corte) if fecha_corte else factura.estado_factura,
+        "target_mora_simulado": target_mora_visible,
+        "dias_mora_real": dias_mora_real_visible,
+        "fecha_corte": fecha_corte,
+        "estado_corte": None,
+        "dias_mora_observable": None,
+    }
+    if fecha_corte:
+        payload["estado_corte"] = cutoff_invoice_state(factura, fecha_corte)
+        payload["dias_mora_observable"] = observable_days_late(factura, fecha_corte)
+    return payload
 
 
 @router.post("/admin/init-db", response_model=InitDbResult, tags=["admin"])
@@ -133,7 +172,7 @@ def get_customer_segment(cliente_id: str, db: Session = Depends(get_db)) -> Segm
     return segmento
 
 
-@router.get("/invoices", response_model=list[FacturaOut], tags=["invoices"])
+@router.get("/invoices", response_model=list[FacturaListOut], tags=["invoices"])
 def list_invoices(
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -141,19 +180,20 @@ def list_invoices(
     cliente_id: str | None = None,
     fecha_corte: date | None = None,
     db: Session = Depends(get_db),
-) -> list[FacturaOut]:
+) -> list[FacturaListOut]:
     stmt = select(Factura).order_by(Factura.factura_id).limit(limit).offset(offset)
+    if fecha_corte:
+        stmt = stmt.where(Factura.fecha_emision <= fecha_corte)
     if active_only and fecha_corte:
         stmt = (
-            stmt.where(Factura.fecha_emision <= fecha_corte)
-            .where(Factura.estado_factura.notin_(["anulada", "castigada"]))
+            stmt.where(Factura.estado_factura.notin_(["anulada", "castigada"]))
             .where(or_(Factura.fecha_pago_real.is_(None), Factura.fecha_pago_real > fecha_corte))
         )
     elif active_only:
         stmt = stmt.where(Factura.estado_factura == "abierta")
     if cliente_id:
         stmt = stmt.where(Factura.cliente_id == cliente_id)
-    return list(db.scalars(stmt))
+    return [_invoice_list_payload(factura, fecha_corte) for factura in db.scalars(stmt)]
 
 
 @router.post("/invoices", response_model=FacturaOut, status_code=201, tags=["invoices"])
@@ -164,37 +204,52 @@ def post_invoice(payload: FacturaCreate, db: Session = Depends(get_db)) -> Factu
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/invoices/prioritized", tags=["invoices"])
+@router.get("/invoices/prioritized", response_model=list[PrioritizedInvoiceOut], tags=["invoices"])
 def prioritized_invoices(
     limit: int = Query(default=50, ge=1, le=500),
     fecha_corte: date | None = None,
+    estado_corte: str = Query(default="preventive", pattern="^(preventive|overdue|paid)$"),
     db: Session = Depends(get_db),
-) -> list[dict]:
+) -> list[PrioritizedInvoiceOut]:
+    if fecha_corte is None:
+        fecha_corte = date.today()
     latest_stmt = select(
         PrediccionFactura.factura_id,
         func.max(PrediccionFactura.prediccion_id).label("max_prediccion_id"),
-    )
-    if fecha_corte:
-        latest_stmt = latest_stmt.where(PrediccionFactura.fecha_corte == fecha_corte)
+    ).where(PrediccionFactura.fecha_corte == fecha_corte)
     latest_subq = latest_stmt.group_by(PrediccionFactura.factura_id).subquery()
 
     stmt = (
         select(Factura, Cliente, PrediccionFactura, SegmentoCliente)
         .join(Cliente, Factura.cliente_id == Cliente.cliente_id)
+        .where(Factura.fecha_emision <= fecha_corte)
         .where(Factura.estado_factura.notin_(["anulada", "castigada"]))
-        .join(latest_subq, latest_subq.c.factura_id == Factura.factura_id)
-        .join(
+        .outerjoin(latest_subq, latest_subq.c.factura_id == Factura.factura_id)
+        .outerjoin(
             PrediccionFactura,
             PrediccionFactura.prediccion_id == latest_subq.c.max_prediccion_id,
         )
-        .where(or_(Factura.fecha_pago_real.is_(None), Factura.fecha_pago_real > PrediccionFactura.fecha_corte))
         .outerjoin(SegmentoCliente, SegmentoCliente.cliente_id == Factura.cliente_id)
-        .order_by(desc(PrediccionFactura.priority_score_0_100))
+        .order_by(desc(func.coalesce(PrediccionFactura.priority_score_0_100, 0)), Factura.factura_id)
         .limit(limit)
     )
+    if estado_corte == "paid":
+        stmt = stmt.where(Factura.fecha_pago_real.is_not(None)).where(Factura.fecha_pago_real <= fecha_corte)
+    else:
+        stmt = stmt.where(or_(Factura.fecha_pago_real.is_(None), Factura.fecha_pago_real > fecha_corte))
+        if estado_corte == "overdue":
+            stmt = stmt.where(Factura.fecha_vencimiento < fecha_corte)
+        else:
+            stmt = stmt.where(Factura.fecha_vencimiento >= fecha_corte)
+
     rows = []
     for factura, cliente, pred, segmento in db.execute(stmt).all():
-        estado_al_corte = "pagada" if factura.fecha_pago_real and factura.fecha_pago_real <= pred.fecha_corte else "abierta"
+        estado_al_corte = invoice_status_at_cutoff(factura, fecha_corte)
+        fecha_pago_visible = (
+            factura.fecha_pago_real
+            if factura.fecha_pago_real and factura.fecha_pago_real <= fecha_corte
+            else None
+        )
         rows.append(
             {
                 "factura_id": factura.factura_id,
@@ -202,19 +257,24 @@ def prioritized_invoices(
                 "cliente_nombre": cliente.nombre,
                 "sector": cliente.sector,
                 "monto": factura.monto,
+                "fecha_emision": factura.fecha_emision,
                 "fecha_vencimiento": factura.fecha_vencimiento,
+                "fecha_pago_real": fecha_pago_visible,
+                "dias_mora_real": factura.dias_mora_real if fecha_pago_visible else None,
+                "dias_mora_observable": observable_days_late(factura, fecha_corte),
                 "estado_factura": estado_al_corte,
                 "estado_factura_actual": factura.estado_factura,
-                "fecha_corte": pred.fecha_corte,
-                "predicted_label_usuario": pred.predicted_label_usuario,
-                "prob_pago_plazo": pred.prob_pago_plazo,
-                "prob_atraso_leve": pred.prob_atraso_leve,
-                "prob_atraso_alto": pred.prob_atraso_alto,
-                "prob_atraso_critico": pred.prob_atraso_critico,
-                "any_late_probability": pred.any_late_probability,
-                "high_risk_probability": pred.high_risk_probability,
-                "priority_score_0_100": pred.priority_score_0_100,
-                "accion_sugerida": pred.accion_sugerida_nombre,
+                "estado_corte": cutoff_invoice_state(factura, fecha_corte),
+                "fecha_corte": fecha_corte,
+                "predicted_label_usuario": pred.predicted_label_usuario if pred else None,
+                "prob_pago_plazo": pred.prob_pago_plazo if pred else None,
+                "prob_atraso_leve": pred.prob_atraso_leve if pred else None,
+                "prob_atraso_alto": pred.prob_atraso_alto if pred else None,
+                "prob_atraso_critico": pred.prob_atraso_critico if pred else None,
+                "any_late_probability": pred.any_late_probability if pred else None,
+                "high_risk_probability": pred.high_risk_probability if pred else None,
+                "priority_score_0_100": pred.priority_score_0_100 if pred else None,
+                "accion_sugerida": pred.accion_sugerida_nombre if pred else None,
                 "rating_estrellas": segmento.rating_estrellas if segmento else None,
             }
         )
@@ -245,10 +305,16 @@ def recalculate_scoring(
 
 
 @router.get("/invoices/{factura_id}", response_model=FacturaOut, tags=["invoices"])
-def get_invoice(factura_id: str, db: Session = Depends(get_db)) -> FacturaOut:
+def get_invoice(
+    factura_id: str,
+    fecha_corte: date | None = None,
+    db: Session = Depends(get_db),
+) -> FacturaOut:
     factura = db.get(Factura, factura_id)
     if factura is None:
         raise HTTPException(status_code=404, detail="Factura no encontrada")
+    if fecha_corte:
+        return _invoice_list_payload(factura, fecha_corte)
     return factura
 
 
@@ -265,38 +331,66 @@ def patch_invoice(
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
-@router.get("/invoices/{factura_id}/interactions", tags=["invoices"])
-def get_invoice_interactions(factura_id: str, db: Session = Depends(get_db)) -> list[dict]:
+@router.get("/invoices/{factura_id}/interactions", response_model=list[InteractionOut], tags=["invoices"])
+def get_invoice_interactions(
+    factura_id: str,
+    fecha_corte: date | None = None,
+    db: Session = Depends(get_db),
+) -> list[InteractionOut]:
+    factura = db.get(Factura, factura_id)
+    if factura is None:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
     stmt = (
         select(GestionCobranza)
         .where(GestionCobranza.factura_id == factura_id)
         .order_by(GestionCobranza.fecha_gestion, GestionCobranza.gestion_id)
     )
-    return [
-        {
-            "gestion_id": row.gestion_id,
-            "fecha_gestion": row.fecha_gestion,
-            "canal": row.canal,
-            "contacto_exitoso": row.contacto_exitoso,
-            "resultado": row.resultado,
-            "motivo_no_pago": row.motivo_no_pago,
-            "dias_mora_en_gestion": row.dias_mora_en_gestion,
-        }
-        for row in db.scalars(stmt)
-    ]
+    if fecha_corte:
+        stmt = stmt.where(GestionCobranza.fecha_gestion <= fecha_corte)
+    return [interaction_payload(row) for row in db.scalars(stmt)]
+
+
+@router.get("/invoices/{factura_id}/prediction-daily", response_model=list[PredictionDailyOut], tags=["prediction"])
+def get_invoice_prediction_daily(
+    factura_id: str,
+    fecha_corte: date = Query(...),
+    db: Session = Depends(get_db),
+) -> list[PredictionDailyOut]:
+    try:
+        return get_prediction_service().predict_invoice_daily(
+            db,
+            factura_id=factura_id,
+            fecha_corte=fecha_corte,
+        )
+    except ValueError as exc:
+        status_code = 404 if str(exc).startswith("No existe la factura") else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @router.get("/invoices/{factura_id}/predictions", response_model=list[PredictionHistoryOut], tags=["prediction"])
-def get_invoice_prediction_history(factura_id: str, db: Session = Depends(get_db)) -> list[PredictionHistoryOut]:
+def get_invoice_prediction_history(
+    factura_id: str,
+    fecha_corte: date | None = None,
+    db: Session = Depends(get_db),
+) -> list[PredictionHistoryOut]:
     factura = db.get(Factura, factura_id)
     if factura is None:
         raise HTTPException(status_code=404, detail="Factura no encontrada")
+    fecha_pago_visible = (
+        factura.fecha_pago_real
+        if fecha_corte is None or (factura.fecha_pago_real and factura.fecha_pago_real <= fecha_corte)
+        else None
+    )
+    dias_mora_real_visible = factura.dias_mora_real if fecha_pago_visible else None
+    target_mora_visible = factura.target_mora_simulado if fecha_pago_visible else None
 
     stmt = (
         select(PrediccionFactura)
         .where(PrediccionFactura.factura_id == factura_id)
         .order_by(PrediccionFactura.fecha_corte, PrediccionFactura.created_at, PrediccionFactura.prediccion_id)
     )
+    if fecha_corte:
+        stmt = stmt.where(PrediccionFactura.fecha_corte <= fecha_corte)
     return [
         PredictionHistoryOut(
             prediccion_id=pred.prediccion_id,
@@ -316,9 +410,9 @@ def get_invoice_prediction_history(factura_id: str, db: Session = Depends(get_db
             accion_sugerida_codigo=pred.accion_sugerida_codigo,
             accion_sugerida_nombre=pred.accion_sugerida_nombre,
             motivo_accion=pred.motivo_accion,
-            fecha_pago_real=factura.fecha_pago_real,
-            dias_mora_real=factura.dias_mora_real,
-            target_mora_simulado=factura.target_mora_simulado,
+            fecha_pago_real=fecha_pago_visible,
+            dias_mora_real=dias_mora_real_visible,
+            target_mora_simulado=target_mora_visible,
         )
         for pred in db.scalars(stmt)
     ]

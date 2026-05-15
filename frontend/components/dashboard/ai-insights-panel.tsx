@@ -25,20 +25,23 @@ function priorityBucket(score: number) {
 
 export function AiInsightsPanel({ rows }: AiInsightsPanelProps) {
   const total = rows.length;
-  const critical = rows.filter((row) => row.priority_score_0_100 >= 80).length;
-  const highOrCritical = rows.filter((row) => row.priority_score_0_100 >= 60).length;
-  const averageLateRisk = average(rows.map((row) => row.any_late_probability));
-  const averageHighRisk = average(rows.map((row) => row.high_risk_probability));
+  const scoredRows = rows.filter((row) => row.priority_score_0_100 !== null && row.priority_score_0_100 !== undefined);
+  const riskRows = rows.filter((row) => row.any_late_probability !== null && row.any_late_probability !== undefined);
+  const highRiskRows = rows.filter((row) => row.high_risk_probability !== null && row.high_risk_probability !== undefined);
+  const critical = scoredRows.filter((row) => (row.priority_score_0_100 ?? 0) >= 80).length;
+  const highOrCritical = scoredRows.filter((row) => (row.priority_score_0_100 ?? 0) >= 60).length;
+  const averageLateRisk = average(riskRows.map((row) => row.any_late_probability ?? 0));
+  const averageHighRisk = average(highRiskRows.map((row) => row.high_risk_probability ?? 0));
   const topShare = rows
     .slice(0, 10)
     .reduce((totalAmount, row) => totalAmount + row.monto, 0) / Math.max(rows.reduce((totalAmount, row) => totalAmount + row.monto, 0), 1);
 
   const buckets = ["Critica", "Alta", "Media", "Baja"].map((label) => {
-    const count = rows.filter((row) => priorityBucket(row.priority_score_0_100) === label).length;
-    return { label, count, share: total ? count / total : 0 };
+    const count = scoredRows.filter((row) => priorityBucket(row.priority_score_0_100 ?? 0) === label).length;
+    return { label, count, share: scoredRows.length ? count / scoredRows.length : 0 };
   });
 
-  const labels = Array.from(new Set(rows.map((row) => row.predicted_label_usuario))).slice(0, 4);
+  const labels = Array.from(new Set(rows.map((row) => row.predicted_label_usuario).filter(Boolean))).slice(0, 4);
 
   return (
     <section id="auditoria-ia" className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -49,7 +52,9 @@ export function AiInsightsPanel({ rows }: AiInsightsPanelProps) {
               <Activity className="size-5 text-muted-foreground" />
               <CardTitle className="text-base">Lectura auditora de IA</CardTitle>
             </div>
-            <Badge variant="secondary">Top {total.toLocaleString("es-EC")} de la cola</Badge>
+            <Badge variant="secondary">
+              {scoredRows.length.toLocaleString("es-EC")} con prediccion / {total.toLocaleString("es-EC")} total
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="grid gap-4 p-4 md:grid-cols-3">

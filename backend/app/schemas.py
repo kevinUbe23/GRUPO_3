@@ -31,6 +31,12 @@ class FacturaOut(BaseModel):
     dias_mora_real: int | None
 
 
+class FacturaListOut(FacturaOut):
+    fecha_corte: date | None = None
+    estado_corte: str | None = None
+    dias_mora_observable: int | None = None
+
+
 class FacturaCreate(BaseModel):
     factura_id: str | None = None
     cliente_id: str
@@ -144,6 +150,51 @@ class PredictionOut(BaseModel):
     priority_score_0_100: float
     accion_sugerida: ActionOut
     feature_source: str
+
+
+class PrioritizedInvoiceOut(BaseModel):
+    factura_id: str
+    cliente_id: str
+    cliente_nombre: str
+    sector: str
+    monto: float
+    fecha_emision: date
+    fecha_vencimiento: date
+    fecha_pago_real: date | None
+    dias_mora_real: int | None
+    dias_mora_observable: int
+    estado_factura: str
+    estado_factura_actual: str
+    estado_corte: str
+    fecha_corte: date
+    predicted_label_usuario: str | None
+    prob_pago_plazo: float | None
+    prob_atraso_leve: float | None
+    prob_atraso_alto: float | None
+    prob_atraso_critico: float | None
+    any_late_probability: float | None
+    high_risk_probability: float | None
+    priority_score_0_100: float | None
+    accion_sugerida: str | None
+    rating_estrellas: int | None
+
+
+class InteractionOut(BaseModel):
+    gestion_id: str
+    fecha_gestion: date
+    canal: str
+    canal_label: str
+    contacto_exitoso: bool
+    resultado: str
+    resultado_label: str
+    motivo_no_pago: str | None
+    motivo_no_pago_label: str | None
+    interpretacion: str
+    dias_mora_en_gestion: int
+
+
+class PredictionDailyOut(PredictionOut):
+    pass
 
 
 class PredictionHistoryOut(BaseModel):

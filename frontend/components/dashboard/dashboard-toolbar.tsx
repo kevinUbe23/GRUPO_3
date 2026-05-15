@@ -3,6 +3,7 @@
 import { CalendarDays, Database, Loader2, RefreshCw } from "lucide-react";
 
 import { MobileSidebar } from "@/components/dashboard/app-sidebar";
+import type { DashboardView } from "@/components/dashboard/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -12,6 +13,8 @@ type DashboardToolbarProps = {
   onFechaCorteChange: (value: string) => void;
   onInitialize: () => void;
   onRecalculate: () => void;
+  activeView: DashboardView;
+  onViewChange: (view: DashboardView) => void;
 };
 
 export function DashboardToolbar({
@@ -19,12 +22,18 @@ export function DashboardToolbar({
   loading,
   onFechaCorteChange,
   onInitialize,
-  onRecalculate
+  onRecalculate,
+  activeView,
+  onViewChange
 }: DashboardToolbarProps) {
   return (
     <header className="mb-5 flex flex-col gap-4 border-b pb-5 xl:flex-row xl:items-center xl:justify-between">
       <div className="flex min-w-0 items-start gap-3">
-        <MobileSidebar className="mt-1 lg:hidden" />
+        <MobileSidebar
+          className="mt-1 lg:hidden"
+          activeView={activeView}
+          onViewChange={onViewChange}
+        />
         <div className="min-w-0">
           <p className="text-sm font-medium text-muted-foreground">Priorizacion inteligente</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-normal text-foreground md:text-3xl">

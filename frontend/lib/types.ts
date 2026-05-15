@@ -161,3 +161,60 @@ export type RecalculateResult = {
   total_con_error: number;
   errores: Array<{ factura_id: string; error: string }>;
 };
+
+export type InvoiceCreateInput = {
+  factura_id?: string;
+  cliente_id: string;
+  fecha_emision: string;
+  fecha_vencimiento: string;
+  fecha_pago_real?: string | null;
+  monto: number;
+  saldo_pendiente?: number | null;
+  estado_factura: "abierta" | "pagada" | "en_disputa" | "anulada" | "castigada";
+};
+
+export type InteractionCreateInput = {
+  factura_id: string;
+  fecha_gestion: string;
+  canal: "whatsapp" | "email" | "llamada" | "visita" | "carta_notarial";
+  contacto_exitoso: boolean;
+  resultado: string;
+  motivo_no_pago?: string | null;
+  observacion?: string | null;
+  recalculate?: boolean;
+};
+
+export type InteractionCreated = {
+  gestion_id: string;
+  factura_id: string;
+  cliente_id: string;
+  fecha_gestion: string;
+  canal: string;
+  contacto_exitoso: boolean;
+  resultado: string;
+  motivo_no_pago: string | null;
+  dias_mora_en_gestion: number;
+  observacion: string | null;
+};
+
+export type PromiseCreateInput = {
+  gestion_id: string;
+  fecha_compromiso: string;
+  recalculate?: boolean;
+};
+
+export type PromiseCreated = {
+  promesa_id: string;
+  gestion_id: string;
+  factura_id: string;
+  cliente_id: string;
+  fecha_promesa: string;
+  fecha_compromiso: string;
+  se_cumplio: boolean;
+  estado_promesa: string;
+};
+
+export type PaymentCreateInput = {
+  factura_id: string;
+  fecha_pago: string;
+};

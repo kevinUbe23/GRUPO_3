@@ -2,10 +2,16 @@ import type {
   Customer,
   DashboardSummary,
   Interaction,
+  InteractionCreated,
+  InteractionCreateInput,
   Invoice,
+  InvoiceCreateInput,
+  PaymentCreateInput,
   Prediction,
   PredictionDailyItem,
   PredictionHistoryItem,
+  PromiseCreated,
+  PromiseCreateInput,
   PrioritizedInvoice,
   RecalculateResult,
   Segment
@@ -51,10 +57,30 @@ export const api = {
     }),
   invoice: (facturaId: string, fechaCorte?: string) =>
     request<Invoice>(`/invoices/${facturaId}${fechaCorte ? `?fecha_corte=${fechaCorte}` : ""}`),
+  createInvoice: (payload: InvoiceCreateInput) =>
+    request<Invoice>("/invoices", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   interactions: (facturaId: string, fechaCorte?: string) =>
     request<Interaction[]>(
       `/invoices/${facturaId}/interactions${fechaCorte ? `?fecha_corte=${fechaCorte}` : ""}`
     ),
+  createInteraction: (payload: InteractionCreateInput) =>
+    request<InteractionCreated>("/collections/interactions", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  createPromise: (payload: PromiseCreateInput) =>
+    request<PromiseCreated>("/payment-promises", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  registerPayment: (payload: PaymentCreateInput) =>
+    request<Invoice>("/payments", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   predictionHistory: (facturaId: string, fechaCorte?: string) =>
     request<PredictionHistoryItem[]>(
       `/invoices/${facturaId}/predictions${fechaCorte ? `?fecha_corte=${fechaCorte}` : ""}`

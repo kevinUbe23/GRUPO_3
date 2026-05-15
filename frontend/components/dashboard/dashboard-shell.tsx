@@ -19,10 +19,14 @@ import type {
   Customer,
   DashboardSummary,
   Interaction,
+  InteractionCreateInput,
   Invoice,
+  InvoiceCreateInput,
+  PaymentCreateInput,
   Prediction,
   PredictionDailyItem,
   PredictionHistoryItem,
+  PromiseCreateInput,
   PrioritizedInvoice,
   RecalculateResult,
   Segment
@@ -59,6 +63,7 @@ export function DashboardShell() {
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detailVersion, setDetailVersion] = useState(0);
 
   const activeRows = useMemo(() => {
     if (activeView === "overdue") return overdueRows;
@@ -114,7 +119,28 @@ export function DashboardShell() {
   const selectedFacturaId = selected?.factura_id;
   const selectedClienteId = selected?.cliente_id;
 
-  async function loadSummaryAndQueue(keepSelected = true) {
+  function rowsForView(
+    view: DashboardView,
+    preventive: PrioritizedInvoice[],
+    overdue: PrioritizedInvoice[],
+    paid: PrioritizedInvoice[]
+  ) {
+    if (view === "overdue") return overdue;
+    if (view === "paid") return paid;
+    return preventive;
+  }
+
+  function viewForInvoiceAtCutoff(item: Invoice): DashboardView {
+    if (item.fecha_pago_real && item.fecha_pago_real <= fechaCorte) return "paid";
+    if (item.fecha_vencimiento < fechaCorte) return "overdue";
+    return "preventive";
+  }
+
+  async function loadSummaryAndQueue(
+    keepSelected = true,
+    preferredFacturaId?: string,
+    queueView: DashboardView = activeView
+  ) {
     setError(null);
     const [summary, preventive, overdue, paid] = await Promise.all([
       api.dashboard(fechaCorte),
@@ -127,8 +153,12 @@ export function DashboardShell() {
     setPreventiveRows(preventive);
     setOverdueRows(overdue);
     setPaidRows(paid);
-    const queue = activeView === "overdue" ? overdue : activeView === "paid" ? paid : preventive;
+    const queue = rowsForView(queueView, preventive, overdue, paid);
+    const allRows = [...preventive, ...overdue, ...paid];
     setSelected((current) => {
+      if (preferredFacturaId) {
+        return allRows.find((row) => row.factura_id === preferredFacturaId) ?? queue[0] ?? null;
+      }
       if (!keepSelected) return queue[0] ?? null;
       if (!current) return queue[0] ?? null;
       return queue.find((row) => row.factura_id === current.factura_id) ?? queue[0] ?? null;
@@ -191,6 +221,107 @@ export function DashboardShell() {
       setPredictionDaily(daily);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo actualizar la prediccion.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function createInvoice(payload: InvoiceCreateInput) {
+    setLoading(true);
+    setError(null);
+    try {
+      const created = await api.createInvoice(payload);
+      const targetView = viewForInvoiceAtCutoff(created);
+      let scoreWarning: string | null = null;
+      if (!["pagada", "anulada", "castigada"].includes(created.estado_factura) && created.fecha_emision <= fechaCorte) {
+        try {
+          await api.score(created.factura_id, fechaCorte, true);
+        } catch (err) {
+          scoreWarning = err instanceof Error ? err.message : "Factura creada sin prediccion calculada.";
+        }
+      }
+      setActiveView(targetView);
+      setPrediction(null);
+      await loadSummaryAndQueue(true, created.factura_id, targetView);
+      setDetailVersion((value) => value + 1);
+      if (scoreWarning) {
+        setError(`Factura creada, pero no se pudo calcular la prediccion: ${scoreWarning}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo crear la factura.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createInteraction(payload: InteractionCreateInput) {
+    setDetailLoading(true);
+    setError(null);
+    try {
+      await api.createInteraction(payload);
+      let scoreWarning: string | null = null;
+      try {
+        await api.score(payload.factura_id, fechaCorte, true);
+      } catch (err) {
+        scoreWarning = err instanceof Error ? err.message : "Gestion registrada sin prediccion recalculada.";
+      }
+      setPrediction(null);
+      await loadSummaryAndQueue(true, payload.factura_id, activeView);
+      setDetailVersion((value) => value + 1);
+      if (scoreWarning) {
+        setError(`Gestion registrada, pero no se pudo recalcular la prediccion: ${scoreWarning}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo registrar la gestion.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function createPromise(payload: PromiseCreateInput) {
+    if (!selected) return;
+    setDetailLoading(true);
+    setError(null);
+    try {
+      await api.createPromise(payload);
+      let scoreWarning: string | null = null;
+      try {
+        await api.score(selected.factura_id, fechaCorte, true);
+      } catch (err) {
+        scoreWarning = err instanceof Error ? err.message : "Promesa registrada sin prediccion recalculada.";
+      }
+      setPrediction(null);
+      await loadSummaryAndQueue(true, selected.factura_id, activeView);
+      setDetailVersion((value) => value + 1);
+      if (scoreWarning) {
+        setError(`Promesa registrada, pero no se pudo recalcular la prediccion: ${scoreWarning}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo registrar la promesa.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function registerPayment(payload: PaymentCreateInput) {
+    setDetailLoading(true);
+    setError(null);
+    try {
+      const paidInvoice = await api.registerPayment(payload);
+      setActiveView("paid");
+      setPrediction(null);
+      await loadSummaryAndQueue(true, paidInvoice.factura_id, "paid");
+      setDetailVersion((value) => value + 1);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo registrar el pago.";
+      setError(message);
+      throw new Error(message);
     } finally {
       setDetailLoading(false);
     }
@@ -290,7 +421,7 @@ export function DashboardShell() {
     return () => {
       cancelled = true;
     };
-  }, [fechaCorte, selectedClienteId, selectedFacturaId]);
+  }, [detailVersion, fechaCorte, selectedClienteId, selectedFacturaId]);
 
   return (
     <div className="min-h-screen bg-muted/35">
@@ -303,6 +434,7 @@ export function DashboardShell() {
             onFechaCorteChange={setFechaCorte}
             onInitialize={initializeData}
             onRecalculate={recalculate}
+            onCreateInvoice={createInvoice}
             activeView={activeView}
             onViewChange={setActiveView}
           />
@@ -392,6 +524,9 @@ export function DashboardShell() {
                 detailLoading={detailLoading}
                 canScore={activeView !== "paid"}
                 onScore={scoreSelected}
+                onCreateInteraction={createInteraction}
+                onCreatePromise={createPromise}
+                onRegisterPayment={registerPayment}
               />
             </section>
           ) : null}

@@ -2,10 +2,12 @@
 
 import { CalendarDays, Database, Loader2, RefreshCw } from "lucide-react";
 
+import { CreateInvoiceSheet } from "@/components/dashboard/create-invoice-sheet";
 import { MobileSidebar } from "@/components/dashboard/app-sidebar";
 import type { DashboardView } from "@/components/dashboard/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { InvoiceCreateInput } from "@/lib/types";
 
 type DashboardToolbarProps = {
   fechaCorte: string;
@@ -13,6 +15,7 @@ type DashboardToolbarProps = {
   onFechaCorteChange: (value: string) => void;
   onInitialize: () => void;
   onRecalculate: () => void;
+  onCreateInvoice: (payload: InvoiceCreateInput) => Promise<void>;
   activeView: DashboardView;
   onViewChange: (view: DashboardView) => void;
 };
@@ -23,6 +26,7 @@ export function DashboardToolbar({
   onFechaCorteChange,
   onInitialize,
   onRecalculate,
+  onCreateInvoice,
   activeView,
   onViewChange
 }: DashboardToolbarProps) {
@@ -57,6 +61,7 @@ export function DashboardToolbar({
           <Database data-icon="inline-start" />
           Inicializar
         </Button>
+        <CreateInvoiceSheet fechaCorte={fechaCorte} disabled={loading} onCreate={onCreateInvoice} />
         <Button onClick={onRecalculate} disabled={loading}>
           {loading ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <RefreshCw data-icon="inline-start" />}
           Recalcular

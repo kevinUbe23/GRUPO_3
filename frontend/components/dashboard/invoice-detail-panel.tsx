@@ -2,6 +2,7 @@
 
 import { FileText, Gauge, Loader2, PhoneCall, UserRound } from "lucide-react";
 
+import { InvoiceOperationalActions } from "@/components/dashboard/invoice-operational-actions";
 import { MetricHelp } from "@/components/dashboard/metric-help";
 import { ProbabilityBar } from "@/components/dashboard/probability-bar";
 import { PredictionTimeline } from "@/components/dashboard/prediction-timeline";
@@ -25,6 +26,9 @@ import type {
   PredictionDailyItem,
   PredictionHistoryItem,
   PrioritizedInvoice,
+  InteractionCreateInput,
+  PaymentCreateInput,
+  PromiseCreateInput,
   Segment
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -42,6 +46,9 @@ type InvoiceDetailPanelProps = {
   detailLoading: boolean;
   canScore: boolean;
   onScore: () => void;
+  onCreateInteraction: (payload: InteractionCreateInput) => Promise<void>;
+  onCreatePromise: (payload: PromiseCreateInput) => Promise<void>;
+  onRegisterPayment: (payload: PaymentCreateInput) => Promise<void>;
 };
 
 export function InvoiceDetailPanel({
@@ -56,7 +63,10 @@ export function InvoiceDetailPanel({
   fechaCorte,
   detailLoading,
   canScore,
-  onScore
+  onScore,
+  onCreateInteraction,
+  onCreatePromise,
+  onRegisterPayment
 }: InvoiceDetailPanelProps) {
   const score = prediction?.priority_score_0_100 ?? selected?.priority_score_0_100;
   const scoreNumber = typeof score === "number" ? score : null;
@@ -194,6 +204,19 @@ export function InvoiceDetailPanel({
                 </p>
               </div>
             </div>
+            {selected.estado_corte !== "paid" && (
+              <div className="mt-4">
+                <InvoiceOperationalActions
+                  selected={selected}
+                  interactions={interactions}
+                  fechaCorte={fechaCorte}
+                  disabled={detailLoading}
+                  onCreateInteraction={onCreateInteraction}
+                  onCreatePromise={onCreatePromise}
+                  onRegisterPayment={onRegisterPayment}
+                />
+              </div>
+            )}
           </section>
 
           <PredictionTimeline

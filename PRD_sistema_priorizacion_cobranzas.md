@@ -42,6 +42,7 @@ El sistema no debe funcionar como castigo automatico ni como bloqueo comercial a
 - Tabla de acciones sugeridas basada en reglas de negocio.
 - Validacion de datos antes de predecir.
 - Persistencia de predicciones y versiones de modelo.
+- Vista auditora de IA con distribucion del score de prioridad, evolucion temporal de predicciones por factura y comparacion contra el resultado real cuando exista.
 
 ### No incluido en MVP
 
@@ -113,6 +114,35 @@ priority_score_0_100 = 100 * (0.40 * prob_atraso_leve + 0.70 * prob_atraso_alto 
 
 Este score permite ordenar la cola de facturas. Una factura con alta probabilidad de atraso leve tambien debe subir en prioridad, porque cualquier pago posterior al plazo pactado afecta caja.
 
+Lectura operativa sugerida:
+
+| Rango de score | Nivel de prioridad | Lectura para el usuario |
+|---:|---|---|
+| 0-39 | Baja | Monitorear. No requiere gestion inmediata salvo que exista otra alerta operativa. |
+| 40-59 | Media | Hacer gestion preventiva o revisar si esta proxima a vencer. |
+| 60-79 | Alta | Priorizar seguimiento; conviene contacto activo o confirmacion de pago. |
+| 80-100 | Critica | Gestion urgente; revisar accion sugerida y escalar si hay mora, promesa vencida o monto alto. |
+
+#### Lectura para la interfaz y el informe
+
+La interfaz debe separar cuatro conceptos para evitar ambiguedad:
+
+| Concepto | Que responde | Uso en pantalla |
+|---|---|---|
+| Clase predicha | Cual es el escenario mas probable segun el modelo. | Mostrar como etiqueta principal: pago dentro del plazo, atraso leve, atraso alto o atraso critico. |
+| Probabilidades por clase | Que probabilidad tiene cada escenario. | Mostrar cuatro barras: pago dentro del plazo, atraso leve, atraso alto y atraso critico / 60+. |
+| Probabilidad de mora grave | Que tan probable es una mora alta o critica. | Mostrar como lectura auxiliar: `prob_atraso_alto + prob_atraso_critico`. |
+| Score de prioridad | Que factura debe gestionarse primero. | Mostrar como indice 0-100 para ordenar la cola de cobranza. No es una probabilidad directa. |
+
+Los tooltips deben explicar los rangos de dias de cada clase:
+
+- Pago dentro del plazo: pago sin atraso relevante frente al vencimiento pactado.
+- Atraso leve: pago hasta 30 dias despues del vencimiento.
+- Atraso alto: pago entre 31 y 60 dias despues del vencimiento.
+- Atraso critico / 60+: mora mayor a 60 dias. Aunque la clase tecnica sea `+90`, la lectura de negocio debe ser 60+ dias.
+
+En la cola principal, el antiguo texto "Riesgo" debe reemplazarse por "Score de prioridad", porque la metrica pondera gravedad y probabilidad para ordenar trabajo operativo. La probabilidad de atraso debe mostrarse aparte. La clase predicha debe aparecer como una columna o etiqueta independiente llamada "Prediccion", para que se identifiquen rapidamente casos de "Pago esperado dentro del plazo".
+
 ### Rating de cliente
 
 El rating va de 1 a 5 estrellas:
@@ -126,6 +156,8 @@ El rating va de 1 a 5 estrellas:
 | 1 | Cliente critico. |
 
 El rating no debe mostrarse como alerta independiente. Debe usarse como contexto dentro de la ficha del cliente, detalle de factura, filtros y reglas de accion sugerida.
+
+El `riesgo_0_100` del cliente no es la misma metrica que el `priority_score_0_100` de una factura. El riesgo del cliente es historico y contextual: resume comportamiento pasado, cumplimiento, mora, promesas y contacto. El score de prioridad es operativo y se calcula por factura para ordenar la cola diaria.
 
 ## 6. Pantallas del frontend
 
@@ -257,6 +289,40 @@ Debe permitir:
 - Recalcular toda la cartera activa.
 - Ver como cambia la prioridad.
 - Probar una factura nueva.
+
+### 6.6 Observabilidad y evidencia de IA
+
+Esta vista existe para que un auditor academico pueda entender si el sistema de prediccion aporta valor y como cambia su recomendacion al avanzar la fecha de corte.
+
+Debe mostrar a nivel de cartera:
+
+- Distribucion de facturas por nivel de score: bajo, medio, alto y critico.
+- Probabilidad promedio de cualquier atraso.
+- Probabilidad promedio de mora alta o critica.
+- Concentracion monetaria de los casos mas prioritarios.
+- Etiquetas de prediccion dominantes en la cola activa.
+- Cantidad de casos que requieren revision por score alto o critico.
+
+Debe mostrar a nivel de factura:
+
+- Historial de predicciones persistidas por `fecha_corte`.
+- Evolucion del `priority_score_0_100`.
+- Evolucion de la etiqueta de prediccion orientada al usuario.
+- Probabilidad de cualquier atraso y de mora alta/critica en cada corte.
+- Accion sugerida vigente en cada corte.
+- Resultado real de la factura cuando ya exista `fecha_pago_real`, `dias_mora_real` o `target_mora_simulado`.
+- Comparacion entre la ultima prediccion previa al cierre y la realidad observada.
+
+Metricas recomendadas para una version posterior:
+
+- Error de direccion: casos en los que el sistema predijo bajo riesgo y la factura termino con mora alta o critica.
+- Acierto preventivo: casos en los que el sistema marco riesgo alto antes del vencimiento y la factura efectivamente se atraso.
+- Calibracion por rangos: de las facturas con 70%-80% de probabilidad de atraso, cuantas se atrasaron realmente.
+- Curva de lift/top-k: que porcentaje de los atrasos reales aparece en el top 10%, 20% y 30% de prioridad.
+- Estabilidad temporal: variacion del score entre cortes consecutivos para detectar predicciones demasiado volatiles.
+- Matriz de confusion con etiquetas de negocio: pago dentro del plazo, atraso leve, atraso alto y atraso critico.
+
+Requisito metodologico: estas metricas no deben usar informacion futura respecto a la `fecha_corte`. Para auditoria, la comparacion contra realidad se calcula despues del cierre de la factura y se presenta como evaluacion posterior, no como entrada del modelo.
 
 ## 7. Base de datos necesaria
 
@@ -425,6 +491,7 @@ Endpoints MVP:
 - `GET /dashboard/summary`
 - `GET /invoices`
 - `GET /invoices/{factura_id}`
+- `GET /invoices/{factura_id}/predictions`
 - `POST /invoices`
 - `PATCH /invoices/{factura_id}`
 - `POST /invoices/{factura_id}/score`

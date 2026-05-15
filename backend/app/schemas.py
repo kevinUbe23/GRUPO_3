@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ClienteOut(BaseModel):
@@ -29,6 +29,60 @@ class FacturaOut(BaseModel):
     estado_factura: str
     target_mora_simulado: str | None
     dias_mora_real: int | None
+
+
+class FacturaCreate(BaseModel):
+    factura_id: str | None = None
+    cliente_id: str
+    fecha_emision: date
+    fecha_vencimiento: date
+    fecha_pago_real: date | None = None
+    condicion_dias: int | None = Field(default=None, ge=0)
+    monto: float = Field(gt=0)
+    saldo_pendiente: float | None = Field(default=None, ge=0)
+    estado_factura: str = "abierta"
+    target_mora_simulado: str | None = None
+    dias_mora_real: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "FacturaCreate":
+        if self.fecha_vencimiento < self.fecha_emision:
+            raise ValueError("fecha_vencimiento debe ser mayor o igual a fecha_emision")
+        if self.fecha_pago_real and self.fecha_pago_real < self.fecha_emision:
+            raise ValueError("fecha_pago_real no puede ser anterior a fecha_emision")
+        return self
+
+
+class FacturaUpdate(BaseModel):
+    cliente_id: str | None = None
+    fecha_emision: date | None = None
+    fecha_vencimiento: date | None = None
+    fecha_pago_real: date | None = None
+    condicion_dias: int | None = Field(default=None, ge=0)
+    monto: float | None = Field(default=None, gt=0)
+    saldo_pendiente: float | None = Field(default=None, ge=0)
+    estado_factura: str | None = None
+    target_mora_simulado: str | None = None
+    dias_mora_real: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_required_fields(cls, data):
+        if not isinstance(data, dict):
+            return data
+        non_nullable_fields = {
+            "cliente_id",
+            "fecha_emision",
+            "fecha_vencimiento",
+            "condicion_dias",
+            "monto",
+            "saldo_pendiente",
+            "estado_factura",
+        }
+        null_fields = sorted(field for field in non_nullable_fields if field in data and data[field] is None)
+        if null_fields:
+            raise ValueError(f"Campos no anulables en PATCH: {null_fields}")
+        return data
 
 
 class SegmentoClienteOut(BaseModel):
@@ -90,6 +144,29 @@ class PredictionOut(BaseModel):
     priority_score_0_100: float
     accion_sugerida: ActionOut
     feature_source: str
+
+
+class PredictionHistoryOut(BaseModel):
+    prediccion_id: int
+    factura_id: str
+    cliente_id: str
+    fecha_corte: date
+    modelo_version: str
+    predicted_class_tecnica: str
+    predicted_label_usuario: str
+    prob_pago_plazo: float
+    prob_atraso_leve: float
+    prob_atraso_alto: float
+    prob_atraso_critico: float
+    any_late_probability: float
+    high_risk_probability: float
+    priority_score_0_100: float
+    accion_sugerida_codigo: str
+    accion_sugerida_nombre: str
+    motivo_accion: str
+    fecha_pago_real: date | None
+    dias_mora_real: int | None
+    target_mora_simulado: str | None
 
 
 class DashboardSummary(BaseModel):

@@ -53,7 +53,7 @@ Endpoints principales usados:
 - `components/ui/`: componentes base instalados con shadcn/ui.
 - `lib/api.ts`: cliente HTTP del backend.
 - `lib/types.ts`: tipos compartidos por la pantalla.
-- `lib/formatters.ts`: formatos de dinero, fecha, porcentaje y riesgo.
+- `lib/formatters.ts`: formatos de dinero, fecha, porcentaje, prioridad y riesgo historico.
 
 ## UI
 
@@ -67,4 +67,4 @@ El frontend usa Next.js App Router, React 19, Tailwind CSS 4 y shadcn/ui. La tab
 4. Elegir fecha de corte.
 5. Click en `Recalcular`.
 6. Seleccionar una factura de la cola.
-7. Usar `Scoring` para recalcular el caso seleccionado.
+7. Usar `Actualizar prediccion` para recalcular el caso seleccionado.

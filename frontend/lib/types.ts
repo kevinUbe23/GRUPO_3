@@ -18,6 +18,10 @@ export type PrioritizedInvoice = {
   estado_factura_actual: string;
   fecha_corte: string;
   predicted_label_usuario: string;
+  prob_pago_plazo: number;
+  prob_atraso_leve: number;
+  prob_atraso_alto: number;
+  prob_atraso_critico: number;
   any_late_probability: number;
   high_risk_probability: number;
   priority_score_0_100: number;
@@ -94,6 +98,29 @@ export type Prediction = {
     regla: string;
   };
   feature_source: string;
+};
+
+export type PredictionHistoryItem = {
+  prediccion_id: number;
+  factura_id: string;
+  cliente_id: string;
+  fecha_corte: string;
+  modelo_version: string;
+  predicted_class_tecnica: string;
+  predicted_label_usuario: string;
+  prob_pago_plazo: number;
+  prob_atraso_leve: number;
+  prob_atraso_alto: number;
+  prob_atraso_critico: number;
+  any_late_probability: number;
+  high_risk_probability: number;
+  priority_score_0_100: number;
+  accion_sugerida_codigo: string;
+  accion_sugerida_nombre: string;
+  motivo_accion: string;
+  fecha_pago_real: string | null;
+  dias_mora_real: number | null;
+  target_mora_simulado: string | null;
 };
 
 export type RecalculateResult = {

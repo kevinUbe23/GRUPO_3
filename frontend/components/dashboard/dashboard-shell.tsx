@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
+import { AiInsightsPanel } from "@/components/dashboard/ai-insights-panel";
 import { DesktopSidebar } from "@/components/dashboard/app-sidebar";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
 import { InvoiceDetailPanel } from "@/components/dashboard/invoice-detail-panel";
@@ -18,6 +19,7 @@ import type {
   Interaction,
   Invoice,
   Prediction,
+  PredictionHistoryItem,
   PrioritizedInvoice,
   RecalculateResult,
   Segment
@@ -25,6 +27,7 @@ import type {
 
 const DEFAULT_PAGE_SIZE = 15;
 const PRIORITIZED_LIMIT = 200;
+type ScoreFilter = "todos" | "critico" | "alto" | "medio" | "bajo";
 
 export function DashboardShell() {
   const [fechaCorte, setFechaCorte] = useState(DEFAULT_CUTOFF);
@@ -36,8 +39,10 @@ export function DashboardShell() {
   const [segment, setSegment] = useState<Segment | null>(null);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [prediction, setPrediction] = useState<Prediction | null>(null);
+  const [predictionHistory, setPredictionHistory] = useState<PredictionHistoryItem[]>([]);
   const [batchResult, setBatchResult] = useState<RecalculateResult | null>(null);
   const [query, setQuery] = useState("");
+  const [scoreFilter, setScoreFilter] = useState<ScoreFilter>("todos");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
@@ -46,22 +51,33 @@ export function DashboardShell() {
 
   const filteredRows = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return prioritized;
 
-    return prioritized.filter((row) =>
-      [
-        row.factura_id,
-        row.cliente_id,
-        row.cliente_nombre,
-        row.sector,
-        row.predicted_label_usuario,
-        row.accion_sugerida
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized)
-    );
-  }, [prioritized, query]);
+    return prioritized.filter((row) => {
+      const matchesQuery =
+        !normalized ||
+        [
+          row.factura_id,
+          row.cliente_id,
+          row.cliente_nombre,
+          row.sector,
+          row.predicted_label_usuario,
+          row.accion_sugerida
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalized);
+
+      const score = row.priority_score_0_100;
+      const matchesScore =
+        scoreFilter === "todos" ||
+        (scoreFilter === "critico" && score >= 80) ||
+        (scoreFilter === "alto" && score >= 60 && score < 80) ||
+        (scoreFilter === "medio" && score >= 40 && score < 60) ||
+        (scoreFilter === "bajo" && score < 40);
+
+      return matchesQuery && matchesScore;
+    });
+  }, [prioritized, query, scoreFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const paginatedRows = useMemo(() => {
@@ -75,7 +91,7 @@ export function DashboardShell() {
     setError(null);
     const [summary, queue] = await Promise.all([
       api.dashboard(fechaCorte),
-      api.prioritized(PRIORITIZED_LIMIT)
+      api.prioritized(PRIORITIZED_LIMIT, fechaCorte)
     ]);
 
     setDashboard(summary);
@@ -125,8 +141,9 @@ export function DashboardShell() {
       const result = await api.score(selected.factura_id, fechaCorte, true);
       await loadSummaryAndQueue(true);
       setPrediction(result);
+      setPredictionHistory(await api.predictionHistory(selected.factura_id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo calcular el riesgo.");
+      setError(err instanceof Error ? err.message : "No se pudo actualizar la prediccion.");
     } finally {
       setDetailLoading(false);
     }
@@ -141,7 +158,7 @@ export function DashboardShell() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [pageSize, query]);
+  }, [pageSize, query, scoreFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -153,6 +170,7 @@ export function DashboardShell() {
       setCustomer(null);
       setSegment(null);
       setInteractions([]);
+      setPredictionHistory([]);
       return;
     }
 
@@ -163,19 +181,22 @@ export function DashboardShell() {
     setCustomer(null);
     setSegment(null);
     setInteractions([]);
+    setPredictionHistory([]);
 
     Promise.all([
       api.invoice(selectedFacturaId),
       api.customer(selectedClienteId),
       api.segment(selectedClienteId),
-      api.interactions(selectedFacturaId)
+      api.interactions(selectedFacturaId),
+      api.predictionHistory(selectedFacturaId)
     ])
-      .then(([invoiceData, customerData, segmentData, interactionsData]) => {
+      .then(([invoiceData, customerData, segmentData, interactionsData, predictionHistoryData]) => {
         if (cancelled) return;
         setInvoice(invoiceData);
         setCustomer(customerData);
         setSegment(segmentData);
         setInteractions(interactionsData);
+        setPredictionHistory(predictionHistoryData);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "No se pudo cargar el detalle.");
@@ -211,6 +232,8 @@ export function DashboardShell() {
 
           <SummaryCards dashboard={dashboard} />
 
+          <AiInsightsPanel rows={prioritized} />
+
           {batchResult && (
             <section className="mt-4 flex flex-wrap items-center gap-3 rounded-md border bg-background px-4 py-3 text-sm shadow-sm">
               <CheckCircle2 className="size-5 text-muted-foreground" />
@@ -227,11 +250,13 @@ export function DashboardShell() {
               rows={paginatedRows}
               totalRows={filteredRows.length}
               query={query}
+              scoreFilter={scoreFilter}
               currentPage={currentPage}
               totalPages={totalPages}
               pageSize={pageSize}
               selected={selected}
               onQueryChange={setQuery}
+              onScoreFilterChange={setScoreFilter}
               onPageChange={setCurrentPage}
               onPageSizeChange={setPageSize}
               onSelect={setSelected}
@@ -244,6 +269,7 @@ export function DashboardShell() {
               segment={segment}
               interactions={interactions}
               prediction={prediction}
+              predictionHistory={predictionHistory}
               detailLoading={detailLoading}
               onScore={scoreSelected}
             />

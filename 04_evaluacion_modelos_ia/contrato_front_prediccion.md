@@ -98,14 +98,14 @@ El endpoint de prediccion deberia devolver algo parecido a:
 |---|---|
 | `factura_id` | Mostrar que factura se evaluo. |
 | `cliente_id` | Mostrar cliente. |
-| `predicted_class` | Clase mas probable: `on_time`, `+30`, `+60`, `+90`. |
-| `prob_on_time` | Probabilidad de pago sin mora relevante. |
-| `prob_plus_30` | Probabilidad de mora inicial. |
-| `prob_plus_60` | Probabilidad de mora relevante. |
-| `prob_plus_90` | Probabilidad de mora severa. |
-| `confidence_probability` | Confianza de la clase ganadora. |
-| `any_late_probability` | `prob_plus_30 + prob_plus_60 + prob_plus_90`; probabilidad de cualquier atraso. |
-| `high_risk_probability` | `prob_plus_60 + prob_plus_90`; probabilidad de mora grave o severa. |
+| `predicted_class_tecnica` | Clase tecnica mas probable: `on_time`, `+30`, `+60`, `+90`. No debe mostrarse como etiqueta principal. |
+| `predicted_label_usuario` | Clase predicha con lenguaje de negocio: pago dentro del plazo, atraso leve, atraso alto o atraso critico. |
+| `prob_pago_plazo` | Probabilidad de pago sin mora relevante. |
+| `prob_atraso_leve` | Probabilidad de pago hasta 30 dias despues del vencimiento. |
+| `prob_atraso_alto` | Probabilidad de pago entre 31 y 60 dias despues del vencimiento. |
+| `prob_atraso_critico` | Probabilidad de mora mayor a 60 dias. |
+| `any_late_probability` | `prob_atraso_leve + prob_atraso_alto + prob_atraso_critico`; probabilidad de cualquier atraso. |
+| `high_risk_probability` | `prob_atraso_alto + prob_atraso_critico`; probabilidad de mora grave. |
 | `priority_score_0_100` | Score ponderado para ordenar facturas, considerando `+30`, `+60` y `+90`. |
 | `feature_row` | Opcional para auditoria tecnica; no necesariamente visible al usuario final. |
 
@@ -115,11 +115,42 @@ Para la operacion de cobranza no conviene ignorar `+30`. Si una empresa ya dio 3
 
 | Metrica | Formula | Lectura |
 |---|---|---|
-| `any_late_probability` | `prob_plus_30 + prob_plus_60 + prob_plus_90` | Probabilidad de que no pague dentro del plazo esperado. |
-| `high_risk_probability` | `prob_plus_60 + prob_plus_90` | Probabilidad de mora grave/severa. |
-| `priority_score_0_100` | `100 * (0.40*prob_plus_30 + 0.70*prob_plus_60 + 1.00*prob_plus_90)` | Score para ordenar la cola: todo atraso suma, pero la mora severa pesa mas. |
+| `any_late_probability` | `prob_atraso_leve + prob_atraso_alto + prob_atraso_critico` | Probabilidad de que no pague dentro del plazo esperado. |
+| `high_risk_probability` | `prob_atraso_alto + prob_atraso_critico` | Probabilidad de mora grave. |
+| `priority_score_0_100` | `100 * (0.40*prob_atraso_leve + 0.70*prob_atraso_alto + 1.00*prob_atraso_critico)` | Score para ordenar la cola: todo atraso suma, pero la mora severa pesa mas. |
 
 Los pesos `0.40`, `0.70` y `1.00` son una regla operativa inicial. Si la empresa quiere cero tolerancia a atraso, puede subir el peso de `+30`, por ejemplo a `0.60` o `0.70`. Lo importante es que el score sea explicito y se mantenga estable para comparar facturas.
+
+Lectura operativa recomendada:
+
+| Rango | Nivel | Uso en cobranza |
+|---:|---|---|
+| 0-39 | Baja | Monitorear; no requiere gestion inmediata por modelo. |
+| 40-59 | Media | Gestion preventiva o revision si la factura esta cerca de vencer. |
+| 60-79 | Alta | Seguimiento prioritario y contacto activo. |
+| 80-100 | Critica | Gestion urgente y revision de escalamiento segun accion sugerida. |
+
+## Lectura en el frontend
+
+El frontend debe separar la clase predicha, las probabilidades y el score de prioridad:
+
+| Elemento | Significado | Uso recomendado |
+|---|---|---|
+| Clase predicha | Escenario mas probable del modelo. | Mostrar como etiqueta principal de la factura. |
+| Probabilidades por clase | Probabilidad de cada escenario. | Mostrar cuatro barras con tooltip explicativo. |
+| Probabilidad de mora grave | `prob_plus_60 + prob_plus_90`. | Mostrar como lectura auxiliar: atraso alto o critico. |
+| Score de prioridad | Indice 0-100 para ordenar la cola de cobranza. | Mostrar como score operativo, no como probabilidad. |
+
+Tooltips recomendados para las clases:
+
+- Pago dentro del plazo: probabilidad de pago sin atraso relevante frente al vencimiento pactado.
+- Atraso leve: probabilidad de pago hasta 30 dias despues del vencimiento.
+- Atraso alto: probabilidad de pago entre 31 y 60 dias despues del vencimiento.
+- Atraso critico / 60+: probabilidad de mora mayor a 60 dias. Aunque la clase tecnica sea `+90`, en la interfaz se interpreta como 60+ dias.
+
+El texto "Riesgo" no debe usarse para el `priority_score_0_100` porque puede confundirse con la probabilidad de atraso. El nombre correcto en pantalla es "Score de prioridad". La clase predicha debe mostrarse fuera del score, como columna o etiqueta propia de "Prediccion", para distinguir rapido facturas con pago esperado dentro del plazo.
+
+Si se muestra `riesgo_0_100` del cliente, debe etiquetarse como "Riesgo historico del cliente". Esa metrica es contextual y no reemplaza el score de prioridad de la factura.
 
 ## Uso operativo de `fecha_corte`
 

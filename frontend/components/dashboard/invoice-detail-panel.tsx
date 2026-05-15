@@ -2,7 +2,9 @@
 
 import { FileText, Gauge, Loader2, PhoneCall, UserRound } from "lucide-react";
 
+import { MetricHelp } from "@/components/dashboard/metric-help";
 import { ProbabilityBar } from "@/components/dashboard/probability-bar";
+import { PredictionTimeline } from "@/components/dashboard/prediction-timeline";
 import { Stars } from "@/components/dashboard/stars";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,8 +16,8 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@/components/ui/empty";
-import { compactDate, money, riskClass } from "@/lib/formatters";
-import type { Customer, Interaction, Invoice, Prediction, PrioritizedInvoice, Segment } from "@/lib/types";
+import { clientRiskLevel, compactDate, money, priorityActionHint, priorityClass, priorityLevel } from "@/lib/formatters";
+import type { Customer, Interaction, Invoice, Prediction, PredictionHistoryItem, PrioritizedInvoice, Segment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type InvoiceDetailPanelProps = {
@@ -25,6 +27,7 @@ type InvoiceDetailPanelProps = {
   segment: Segment | null;
   interactions: Interaction[];
   prediction: Prediction | null;
+  predictionHistory: PredictionHistoryItem[];
   detailLoading: boolean;
   onScore: () => void;
 };
@@ -36,10 +39,24 @@ export function InvoiceDetailPanel({
   segment,
   interactions,
   prediction,
+  predictionHistory,
   detailLoading,
   onScore
 }: InvoiceDetailPanelProps) {
   const score = prediction?.priority_score_0_100 ?? selected?.priority_score_0_100 ?? 0;
+  const predictedLabel = prediction?.predicted_label_usuario ?? selected?.predicted_label_usuario;
+  const probabilityValues = {
+    pagoPlazo: prediction?.prob_pago_plazo ?? selected?.prob_pago_plazo ?? Math.max(0, 1 - (selected?.any_late_probability ?? 0)),
+    atrasoLeve: prediction?.prob_atraso_leve ?? selected?.prob_atraso_leve ?? 0,
+    atrasoAlto: prediction?.prob_atraso_alto ?? selected?.prob_atraso_alto ?? 0,
+    atrasoCritico: prediction?.prob_atraso_critico ?? selected?.prob_atraso_critico ?? 0,
+    anyLate: prediction?.any_late_probability ?? selected?.any_late_probability ?? 0,
+    highRisk: prediction?.high_risk_probability ?? selected?.high_risk_probability ?? 0
+  };
+  const scoreDescription =
+    "Indice operativo de 0 a 100 para ordenar la cola: 0-39 baja, 40-59 media, 60-79 alta y 80+ critica. No es una probabilidad; indica que tan pronto conviene gestionar la factura.";
+  const clientRiskDescription =
+    "Metrica historica del cliente, distinta al score de prioridad de la factura. Resume comportamiento pasado: mora, cumplimiento, promesas y contacto. Sirve como contexto, no como orden directo de la cola.";
 
   return (
     <Card id="detalle" className="xl:sticky xl:top-5 xl:self-start">
@@ -53,7 +70,7 @@ export function InvoiceDetailPanel({
           </div>
           <Button onClick={onScore} disabled={!selected || detailLoading} className="shrink-0">
             {detailLoading ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Gauge data-icon="inline-start" />}
-            Scoring
+            Actualizar prediccion
           </Button>
         </div>
       </CardHeader>
@@ -75,27 +92,56 @@ export function InvoiceDetailPanel({
 
           <section className="mt-4 rounded-md border p-4">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-semibold">Riesgo actual</span>
-              <Badge variant="outline" className={cn("font-semibold", riskClass(score))}>
-                {score.toFixed(1)}
+              <span className="inline-flex items-center gap-1 text-sm font-semibold">
+                Score de prioridad
+                <MetricHelp label="Score de prioridad" description={scoreDescription} />
+              </span>
+              <Badge variant="outline" className={cn("font-semibold", priorityClass(score))}>
+                {score.toFixed(1)}/100
               </Badge>
             </div>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Prioridad {priorityLevel(score).toLowerCase()}: {priorityActionHint(score).toLowerCase()}.
+            </p>
+            {predictedLabel && (
+              <div className="mb-3 rounded-md bg-muted/45 px-3 py-2 text-sm">
+                <span className="font-medium">Clase predicha: </span>
+                <span className="text-muted-foreground">{predictedLabel}</span>
+              </div>
+            )}
             <div className="flex flex-col gap-3">
               <ProbabilityBar
                 label="Pago dentro del plazo"
-                value={prediction?.prob_pago_plazo ?? Math.max(0, 1 - selected.any_late_probability)}
+                value={probabilityValues.pagoPlazo}
                 className="bg-primary"
+                description="Probabilidad de que la factura se pague sin atraso relevante frente al vencimiento pactado."
               />
               <ProbabilityBar
-                label="Cualquier atraso"
-                value={prediction?.any_late_probability ?? selected.any_late_probability}
+                label="Atraso leve"
+                value={probabilityValues.atrasoLeve}
                 className="bg-muted-foreground"
+                description="Probabilidad de pago hasta 30 dias despues del vencimiento."
               />
               <ProbabilityBar
-                label="Atraso alto o critico"
-                value={prediction?.high_risk_probability ?? selected.high_risk_probability}
-                className="bg-destructive"
+                label="Atraso alto"
+                value={probabilityValues.atrasoAlto}
+                className="bg-muted-foreground"
+                description="Probabilidad de pago entre 31 y 60 dias despues del vencimiento."
               />
+              <ProbabilityBar
+                label="Atraso critico / 60+"
+                value={probabilityValues.atrasoCritico}
+                className="bg-destructive"
+                description="Probabilidad de mora mayor a 60 dias. La clase tecnica del modelo es +90, pero en negocio se interpreta como 60+ dias."
+              />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+              <div className="rounded-md bg-muted/35 px-3 py-2">
+                Cualquier atraso: {Math.round(probabilityValues.anyLate * 100)}%
+              </div>
+              <div className="rounded-md bg-muted/35 px-3 py-2">
+                Mora grave: {Math.round(probabilityValues.highRisk * 100)}%
+              </div>
             </div>
           </section>
 
@@ -113,6 +159,8 @@ export function InvoiceDetailPanel({
             </div>
           </section>
 
+          <PredictionTimeline invoice={invoice} history={predictionHistory} cutoffDate={selected.fecha_corte} />
+
           {segment && (
             <section className="mt-4 rounded-md border p-4">
               <div className="mb-3 flex items-center justify-between">
@@ -123,7 +171,11 @@ export function InvoiceDetailPanel({
                 <Stars value={segment.rating_estrellas} />
               </div>
               <p className="text-sm font-medium">{segment.tipo_cliente}</p>
-              <p className="mt-1 text-sm text-muted-foreground">Riesgo cliente {segment.riesgo_0_100.toFixed(1)}/100</p>
+              <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground">
+                Riesgo historico del cliente {segment.riesgo_0_100.toFixed(1)}/100
+                <MetricHelp label="Riesgo historico del cliente" description={clientRiskDescription} />
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Nivel historico: {clientRiskLevel(segment.riesgo_0_100)}</p>
               <p className="mt-3 text-sm leading-5 text-muted-foreground">{segment.por_que_rating}</p>
             </section>
           )}

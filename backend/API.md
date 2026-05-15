@@ -100,8 +100,10 @@ $env:COBRANZAS_DATABASE_URL = "sqlite:///C:/ruta/cobranzas.db"
 | `GET` | `/customers/{cliente_id}` | Detalle de cliente. |
 | `GET` | `/customers/{cliente_id}/segment` | Segmentacion, rating y explicacion del cliente. |
 | `GET` | `/invoices` | Lista facturas con filtros. |
+| `POST` | `/invoices` | Crea una factura operativa. |
 | `GET` | `/invoices/prioritized` | Lista facturas con prediccion persistida, ordenadas por prioridad. |
 | `GET` | `/invoices/{factura_id}` | Detalle de factura. |
+| `PATCH` | `/invoices/{factura_id}` | Actualiza una factura operativa. |
 | `GET` | `/invoices/{factura_id}/interactions` | Gestiones historicas de cobranza de la factura. |
 | `POST` | `/invoices/{factura_id}/score` | Calcula prediccion, score y accion sugerida para una factura. |
 | `POST` | `/scoring/recalculate` | Recalcula scoring por lote para facturas activas a una fecha de corte. |
@@ -294,6 +296,75 @@ Errores:
 { "detail": "Factura no encontrada" }
 ```
 
+### POST `/invoices`
+
+Crea una factura en la base operativa. Si `factura_id` se omite, el backend genera un identificador con prefijo `FACAPP`.
+
+Request:
+
+```json
+{
+  "factura_id": "FACAPP000001",
+  "cliente_id": "CLI0001",
+  "fecha_emision": "2024-01-10",
+  "fecha_vencimiento": "2024-02-09",
+  "fecha_pago_real": null,
+  "condicion_dias": 30,
+  "monto": 1500.0,
+  "saldo_pendiente": 1500.0,
+  "estado_factura": "abierta",
+  "target_mora_simulado": null,
+  "dias_mora_real": null
+}
+```
+
+Campos opcionales:
+
+- `factura_id`: si no se envia, se autogenera.
+- `condicion_dias`: si no se envia, se calcula como diferencia entre vencimiento y emision.
+- `saldo_pendiente`: si no se envia, usa `monto` para facturas activas y `0` para facturas anuladas o castigadas.
+- `fecha_pago_real`: si se envia, la factura queda como `pagada`, `saldo_pendiente = 0` y `dias_mora_real` se calcula automaticamente.
+
+Validaciones:
+
+- `cliente_id` debe existir.
+- `fecha_vencimiento` debe ser mayor o igual a `fecha_emision`.
+- `fecha_pago_real` no puede ser anterior a `fecha_emision`.
+- `estado_factura` debe ser uno de `abierta`, `pagada`, `en_disputa`, `anulada`, `castigada`.
+- `saldo_pendiente` no puede ser mayor que `monto`.
+
+### PATCH `/invoices/{factura_id}`
+
+Actualiza parcialmente una factura. Acepta campos operativos de factura, excepto `factura_id`. El `cliente_id` se conserva para no desalinear gestiones, promesas y predicciones historicas ya asociadas a la factura.
+
+Ejemplo:
+
+```json
+{
+  "fecha_pago_real": "2024-02-15"
+}
+```
+
+Si se actualiza `fecha_pago_real`, el backend marca la factura como `pagada`, lleva `saldo_pendiente` a `0` y recalcula `dias_mora_real`.
+
+Al editar una factura, el backend elimina predicciones persistidas de esa factura para evitar que la cola priorizada use scores calculados con datos anteriores. Si la factura debe volver a aparecer en `/invoices/prioritized`, se debe ejecutar nuevamente el scoring.
+
+Campos no anulables en PATCH: `cliente_id`, `fecha_emision`, `fecha_vencimiento`, `condicion_dias`, `monto`, `saldo_pendiente` y `estado_factura`. Si se quieren dejar sin valor, solo pueden enviarse como `null` los campos que el modelo de datos permite nulos: `fecha_pago_real`, `target_mora_simulado` y `dias_mora_real`.
+
+Errores:
+
+```json
+{ "detail": "No existe la factura FAC999999" }
+```
+
+```json
+{ "detail": "estado_factura invalido: pendiente" }
+```
+
+```json
+{ "detail": "cliente_id no puede cambiarse en una factura existente" }
+```
+
 ### GET `/invoices/{factura_id}/interactions`
 
 Respuesta `200`:
@@ -323,6 +394,7 @@ Query params:
 | Parametro | Tipo | Default | Notas |
 | --- | --- | --- | --- |
 | `limit` | integer | `50` | Min `1`, max `500`. |
+| `fecha_corte` | date | null | Si se envia, devuelve la ultima prediccion persistida para esa fecha de corte. |
 
 Respuesta `200`:
 
@@ -339,6 +411,10 @@ Respuesta `200`:
     "estado_factura_actual": "pagada",
     "fecha_corte": "2024-07-15",
     "predicted_label_usuario": "Atraso alto probable",
+    "prob_pago_plazo": 0.18,
+    "prob_atraso_leve": 0.19,
+    "prob_atraso_alto": 0.43,
+    "prob_atraso_critico": 0.20,
     "any_late_probability": 0.82,
     "high_risk_probability": 0.63,
     "priority_score_0_100": 68.4,

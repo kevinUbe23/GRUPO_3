@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.time import utc_now
-from app.db.models import Factura, GestionCobranza, PromesaPago
-from app.schemas import GestionCreate, PaymentCreate, PromesaCreate, PromesaUpdate
+from app.db.models import Cliente, Factura, GestionCobranza, PrediccionFactura, PromesaPago
+from app.schemas import FacturaCreate, FacturaUpdate, GestionCreate, PaymentCreate, PromesaCreate, PromesaUpdate
 
 
 VALID_CHANNELS = {"whatsapp", "email", "llamada", "visita", "carta_notarial"}
+VALID_INVOICE_STATES = {"abierta", "pagada", "en_disputa", "anulada", "castigada"}
 NO_CONTACT_RESULTS = {"no_contesta", "numero_invalido", "cliente_ausente"}
 CONTACT_RESULTS = {
     "pagado",
@@ -26,6 +27,98 @@ PROMISE_STATES = {"activa", "cumplida", "incumplida", "reemplazada", "cancelada"
 def _next_id(db: Session, model, id_col: str, prefix: str) -> str:
     count = db.scalar(select(func.count(getattr(model, id_col)))) or 0
     return f"{prefix}{count + 1:06d}"
+
+
+def _validate_invoice_state(state: str) -> None:
+    if state not in VALID_INVOICE_STATES:
+        raise ValueError(f"estado_factura invalido: {state}")
+
+
+def _validate_invoice_dates(factura: Factura) -> None:
+    if factura.fecha_vencimiento < factura.fecha_emision:
+        raise ValueError("fecha_vencimiento debe ser mayor o igual a fecha_emision")
+    if factura.fecha_pago_real and factura.fecha_pago_real < factura.fecha_emision:
+        raise ValueError("fecha_pago_real no puede ser anterior a fecha_emision")
+
+
+def _validate_invoice_amounts(factura: Factura) -> None:
+    if factura.saldo_pendiente > factura.monto:
+        raise ValueError("saldo_pendiente no puede ser mayor al monto")
+
+
+def _apply_payment_state(factura: Factura) -> None:
+    if factura.fecha_pago_real:
+        factura.estado_factura = "pagada"
+        factura.saldo_pendiente = 0.0
+        factura.dias_mora_real = max((factura.fecha_pago_real - factura.fecha_vencimiento).days, 0)
+    elif factura.estado_factura == "pagada":
+        raise ValueError("Una factura pagada debe tener fecha_pago_real")
+
+
+def create_invoice(db: Session, payload: FacturaCreate) -> Factura:
+    if db.get(Cliente, payload.cliente_id) is None:
+        raise ValueError(f"No existe el cliente {payload.cliente_id}")
+    factura_id = payload.factura_id or _next_id(db, Factura, "factura_id", "FACAPP")
+    if db.get(Factura, factura_id) is not None:
+        raise ValueError(f"Ya existe la factura {factura_id}")
+
+    estado = payload.estado_factura
+    _validate_invoice_state(estado)
+    condicion_dias = payload.condicion_dias
+    if condicion_dias is None:
+        condicion_dias = (payload.fecha_vencimiento - payload.fecha_emision).days
+    saldo_pendiente = payload.saldo_pendiente
+    if saldo_pendiente is None:
+        saldo_pendiente = 0.0 if estado in {"anulada", "castigada"} else payload.monto
+
+    factura = Factura(
+        factura_id=factura_id,
+        cliente_id=payload.cliente_id,
+        fecha_emision=payload.fecha_emision,
+        fecha_vencimiento=payload.fecha_vencimiento,
+        fecha_pago_real=payload.fecha_pago_real,
+        condicion_dias=condicion_dias,
+        monto=payload.monto,
+        saldo_pendiente=saldo_pendiente,
+        estado_factura=estado,
+        target_mora_simulado=payload.target_mora_simulado,
+        dias_mora_real=payload.dias_mora_real,
+    )
+    _validate_invoice_dates(factura)
+    _apply_payment_state(factura)
+    _validate_invoice_amounts(factura)
+    db.add(factura)
+    db.commit()
+    db.refresh(factura)
+    return factura
+
+
+def update_invoice(db: Session, factura_id: str, payload: FacturaUpdate) -> Factura:
+    factura = db.get(Factura, factura_id)
+    if factura is None:
+        raise ValueError(f"No existe la factura {factura_id}")
+
+    updates = payload.model_dump(exclude_unset=True)
+    cliente_id = updates.get("cliente_id")
+    if cliente_id is not None and cliente_id != factura.cliente_id:
+        raise ValueError("cliente_id no puede cambiarse en una factura existente")
+    if cliente_id is not None and db.get(Cliente, cliente_id) is None:
+        raise ValueError(f"No existe el cliente {cliente_id}")
+    estado = updates.get("estado_factura")
+    if estado is not None:
+        _validate_invoice_state(estado)
+
+    for field, value in updates.items():
+        setattr(factura, field, value)
+    _validate_invoice_dates(factura)
+    _apply_payment_state(factura)
+    _validate_invoice_amounts(factura)
+    factura.updated_at = utc_now()
+    if updates:
+        db.execute(delete(PrediccionFactura).where(PrediccionFactura.factura_id == factura.factura_id))
+    db.commit()
+    db.refresh(factura)
+    return factura
 
 
 def _validate_interaction(payload: GestionCreate, factura: Factura) -> None:

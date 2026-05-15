@@ -21,9 +21,30 @@ export function compactDate(value: string | null) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
-export function riskClass(score: number) {
+export function priorityClass(score: number) {
   if (score >= 80) return "border-destructive/20 bg-destructive/10 text-destructive";
   if (score >= 60) return "border-primary/20 bg-primary/10 text-primary";
   if (score >= 40) return "border-muted-foreground/20 bg-muted text-foreground";
   return "border-border bg-background text-muted-foreground";
+}
+
+export function priorityLevel(score: number) {
+  if (score >= 80) return "Critica";
+  if (score >= 60) return "Alta";
+  if (score >= 40) return "Media";
+  return "Baja";
+}
+
+export function priorityActionHint(score: number) {
+  if (score >= 80) return "Gestion urgente";
+  if (score >= 60) return "Seguimiento prioritario";
+  if (score >= 40) return "Gestion preventiva";
+  return "Monitoreo";
+}
+
+export function clientRiskLevel(score: number) {
+  if (score >= 80) return "Critico";
+  if (score >= 60) return "Alto";
+  if (score >= 40) return "Medio";
+  return "Bajo";
 }

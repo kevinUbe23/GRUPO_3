@@ -4,6 +4,7 @@ import type {
   Interaction,
   Invoice,
   Prediction,
+  PredictionHistoryItem,
   PrioritizedInvoice,
   RecalculateResult,
   Segment
@@ -36,8 +37,10 @@ export const api = {
   initDb: () => request<Record<string, number>>("/admin/init-db", { method: "POST" }),
   dashboard: (fechaCorte: string) =>
     request<DashboardSummary>(`/dashboard/summary?fecha_corte=${fechaCorte}`),
-  prioritized: (limit = 50) =>
-    request<PrioritizedInvoice[]>(`/invoices/prioritized?limit=${limit}`),
+  prioritized: (limit = 50, fechaCorte?: string) =>
+    request<PrioritizedInvoice[]>(
+      `/invoices/prioritized?limit=${limit}${fechaCorte ? `&fecha_corte=${fechaCorte}` : ""}`
+    ),
   recalculate: (fechaCorte: string, limit = 100) =>
     request<RecalculateResult>("/scoring/recalculate", {
       method: "POST",
@@ -46,6 +49,8 @@ export const api = {
   invoice: (facturaId: string) => request<Invoice>(`/invoices/${facturaId}`),
   interactions: (facturaId: string) =>
     request<Interaction[]>(`/invoices/${facturaId}/interactions`),
+  predictionHistory: (facturaId: string) =>
+    request<PredictionHistoryItem[]>(`/invoices/${facturaId}/predictions`),
   customer: (clienteId: string) => request<Customer>(`/customers/${clienteId}`),
   segment: (clienteId: string) => request<Segment>(`/customers/${clienteId}/segment`),
   score: (facturaId: string, fechaCorte: string, persist = true) =>

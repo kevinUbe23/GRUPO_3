@@ -1,0 +1,16 @@
+.git/
+.agents/
+.venv/
+.tmp/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ipynb_checkpoints/
+
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.next-dev*.log
+
+backend/data/

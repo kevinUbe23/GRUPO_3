@@ -1,0 +1,41 @@
+services:
+  proxy:
+    image: caddy:2-alpine
+    container_name: cobranzas-proxy
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - frontend
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: cobranzas-backend:latest
+    container_name: cobranzas-backend
+    restart: unless-stopped
+    environment:
+      COBRANZAS_CORS_ORIGIN_REGEX: ${BACKEND_CORS_REGEX:-^https?://(localhost|127\.0\.0\.1)(:\d+)?$}
+    volumes:
+      - cobranzas_backend_data:/app/backend/data
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-/api/v1}
+    image: cobranzas-frontend:latest
+    container_name: cobranzas-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-/api/v1}
+    depends_on:
+      - backend
+
+volumes:
+  cobranzas_backend_data:

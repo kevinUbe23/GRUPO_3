@@ -9,15 +9,14 @@ Este proyecto tiene dos servicios:
 
 Usar `docker-compose.yml` como Stack en Portainer. El stack levanta:
 
-- `proxy`: Caddy, expone una sola URL publica.
 - `frontend`: Next.js.
 - `backend`: FastAPI.
 - `cobranzas_backend_data`: volumen para la base SQLite.
 
-Con esta opcion, la profesora abre una sola URL. Caddy enruta:
+Con esta opcion se exponen dos puertos:
 
-- `/api/*` hacia el backend.
-- Todo lo demas hacia el frontend.
+- Frontend: `8080` por defecto.
+- Backend API: `8000` por defecto.
 
 ### 1. Subir el repositorio
 
@@ -37,11 +36,13 @@ En Portainer:
 2. Crear un stack nuevo.
 3. Usar la opcion de repositorio Git y apuntar al repo.
 4. Compose path: `docker-compose.yml`.
-5. Agregar variables de entorno. Como tu puerto `80` ya esta ocupado, usa por ejemplo `8080`:
+5. Agregar variables de entorno. Reemplaza `IP_O_DOMINIO_DEL_SERVIDOR` por tu IP o dominio real:
 
 ```text
-WEB_PORT=8080
-PUBLIC_API_BASE_URL=/api/v1
+FRONTEND_PORT=8080
+BACKEND_PORT=8000
+PUBLIC_API_BASE_URL=http://IP_O_DOMINIO_DEL_SERVIDOR:8000/api/v1
+BACKEND_CORS_REGEX=^https?://.*$
 ```
 
 No activar una opcion tipo `Pull latest image`, `Re-pull image` o `Pull and redeploy` para este stack. El frontend y el backend no son imagenes publicadas en Docker Hub; Portainer debe construirlas desde `backend/Dockerfile` y `frontend/Dockerfile`.
@@ -49,8 +50,10 @@ No activar una opcion tipo `Pull latest image`, `Re-pull image` o `Pull and rede
 Si el puerto `8080` tambien esta ocupado, puedes cambiarlo por otro puerto libre:
 
 ```text
-WEB_PORT=8081
-PUBLIC_API_BASE_URL=/api/v1
+FRONTEND_PORT=8081
+BACKEND_PORT=8000
+PUBLIC_API_BASE_URL=http://IP_O_DOMINIO_DEL_SERVIDOR:8000/api/v1
+BACKEND_CORS_REGEX=^https?://.*$
 ```
 
 Para probarlo fuera de Portainer, en un servidor con Docker instalado:
@@ -62,10 +65,16 @@ docker compose logs -f
 
 ### 3. Abrir la URL publica
 
-Con `WEB_PORT=8080`:
+Con `FRONTEND_PORT=8080`:
 
 ```text
 http://IP_O_DOMINIO_DEL_SERVIDOR:8080
+```
+
+El backend queda disponible en:
+
+```text
+http://IP_O_DOMINIO_DEL_SERVIDOR:8000/api/v1
 ```
 
 ### 4. Inicializar datos
@@ -75,7 +84,7 @@ Abrir la URL publica del frontend y usar el boton `Inicializar`.
 Tambien se puede llamar directamente:
 
 ```text
-POST http://IP_O_DOMINIO_DEL_SERVIDOR:8080/api/v1/admin/init-db
+POST http://IP_O_DOMINIO_DEL_SERVIDOR:8000/api/v1/admin/init-db
 ```
 
 ## Variante Render + Vercel

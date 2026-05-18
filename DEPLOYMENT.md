@@ -16,7 +16,7 @@ Usar `docker-compose.yml` como Stack en Portainer. El stack levanta:
 Con esta opcion se exponen dos puertos:
 
 - Frontend: `8080` por defecto.
-- Backend API: `8000` por defecto.
+- Backend API: `8081` por defecto.
 
 ### 1. Subir el repositorio
 
@@ -40,8 +40,8 @@ En Portainer:
 
 ```text
 FRONTEND_PORT=8080
-BACKEND_PORT=8000
-PUBLIC_API_BASE_URL=http://IP_O_DOMINIO_DEL_SERVIDOR:8000/api/v1
+BACKEND_PORT=8081
+PUBLIC_API_BASE_URL=http://IP_O_DOMINIO_DEL_SERVIDOR:8081/api/v1
 BACKEND_CORS_REGEX=^https?://.*$
 ```
 
@@ -51,8 +51,8 @@ Si el puerto `8080` tambien esta ocupado, puedes cambiarlo por otro puerto libre
 
 ```text
 FRONTEND_PORT=8081
-BACKEND_PORT=8000
-PUBLIC_API_BASE_URL=http://IP_O_DOMINIO_DEL_SERVIDOR:8000/api/v1
+BACKEND_PORT=8082
+PUBLIC_API_BASE_URL=http://IP_O_DOMINIO_DEL_SERVIDOR:8082/api/v1
 BACKEND_CORS_REGEX=^https?://.*$
 ```
 
@@ -74,7 +74,7 @@ http://IP_O_DOMINIO_DEL_SERVIDOR:8080
 El backend queda disponible en:
 
 ```text
-http://IP_O_DOMINIO_DEL_SERVIDOR:8000/api/v1
+http://IP_O_DOMINIO_DEL_SERVIDOR:8081/api/v1
 ```
 
 ### 4. Inicializar datos
@@ -84,7 +84,7 @@ Abrir la URL publica del frontend y usar el boton `Inicializar`.
 Tambien se puede llamar directamente:
 
 ```text
-POST http://IP_O_DOMINIO_DEL_SERVIDOR:8000/api/v1/admin/init-db
+POST http://IP_O_DOMINIO_DEL_SERVIDOR:8081/api/v1/admin/init-db
 ```
 
 ## Variante Render + Vercel

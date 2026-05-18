@@ -44,6 +44,8 @@ WEB_PORT=8080
 PUBLIC_API_BASE_URL=/api/v1
 ```
 
+No activar una opcion tipo `Pull latest image`, `Re-pull image` o `Pull and redeploy` para este stack. El frontend y el backend no son imagenes publicadas en Docker Hub; Portainer debe construirlas desde `backend/Dockerfile` y `frontend/Dockerfile`.
+
 Si el puerto `8080` tambien esta ocupado, puedes cambiarlo por otro puerto libre:
 
 ```text

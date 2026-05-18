@@ -29,7 +29,6 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    image: cobranzas-backend:latest
     container_name: cobranzas-backend
     restart: unless-stopped
     environment:
@@ -43,7 +42,6 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-/api/v1}
-    image: cobranzas-frontend:latest
     container_name: cobranzas-frontend
     restart: unless-stopped
     environment:

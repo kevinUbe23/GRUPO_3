@@ -14,12 +14,11 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { value: "summary", label: "Resumen", icon: LayoutDashboard },
   { value: "preventive", label: "Cola preventiva", icon: ClipboardList },
   { value: "overdue", label: "Vencidas", icon: Clock3 },
   { value: "paid", label: "Pagadas", icon: CheckCircle2 },
   { value: "customers", label: "Clientes", icon: UsersRound },
-  { value: "metrics", label: "Metricas", icon: BarChart3 }
+  { value: "metrics", label: "Métricas", icon: BarChart3 }
 ] as const;
 
 export type DashboardView = (typeof navItems)[number]["value"];

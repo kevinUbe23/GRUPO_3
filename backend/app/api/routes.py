@@ -94,6 +94,24 @@ def _invoice_list_payload(factura: Factura, fecha_corte: date | None) -> dict:
     return payload
 
 
+def _promise_payload(promesa: PromesaPago, fecha_corte: date | None = None) -> dict:
+    estado_promesa = promesa.estado_promesa
+    se_cumplio = promesa.se_cumplio
+    if fecha_corte and promesa.updated_at and promesa.updated_at.date() > fecha_corte:
+        estado_promesa = "activa"
+        se_cumplio = False
+    return {
+        "promesa_id": promesa.promesa_id,
+        "gestion_id": promesa.gestion_id,
+        "factura_id": promesa.factura_id,
+        "cliente_id": promesa.cliente_id,
+        "fecha_promesa": promesa.fecha_promesa,
+        "fecha_compromiso": promesa.fecha_compromiso,
+        "se_cumplio": se_cumplio,
+        "estado_promesa": estado_promesa,
+    }
+
+
 @router.post("/admin/init-db", response_model=InitDbResult, tags=["admin"])
 def init_db(db: Session = Depends(get_db)) -> InitDbResult:
     return InitDbResult(**reset_and_import_seed_data(db))
@@ -116,6 +134,9 @@ def dashboard_summary(
         facturas_activas = len(active_facturas)
         monto_pendiente = sum(f.monto for f in active_facturas)
         monto_vencido = sum(f.monto for f in active_facturas if f.fecha_vencimiento < fecha_corte)
+        clientes_con_monto_vencido = len(
+            {f.cliente_id for f in active_facturas if f.fecha_vencimiento < fecha_corte}
+        )
     else:
         facturas_activas = db.scalar(
             select(func.count(Factura.factura_id)).where(Factura.estado_factura == "abierta")
@@ -127,17 +148,38 @@ def dashboard_summary(
             .where(Factura.estado_factura == "abierta")
             .where(Factura.fecha_vencimiento < today)
         ) or 0.0
+        clientes_con_monto_vencido = db.scalar(
+            select(func.count(func.distinct(Factura.cliente_id)))
+            .where(Factura.estado_factura == "abierta")
+            .where(Factura.fecha_vencimiento < today)
+        ) or 0
     promesas_activas = db.scalar(
         select(func.count(PromesaPago.promesa_id)).where(PromesaPago.estado_promesa == "activa")
     ) or 0
     facturas_en_disputa = db.scalar(
         select(func.count(Factura.factura_id)).where(Factura.estado_factura == "en_disputa")
     ) or 0
+    if fecha_corte:
+        promesas_corte = db.scalars(
+            select(PromesaPago)
+            .where(PromesaPago.fecha_promesa <= fecha_corte)
+            .where(PromesaPago.fecha_compromiso >= fecha_corte)
+        )
+        promesas_activas = sum(
+            1 for promesa in promesas_corte if _promise_payload(promesa, fecha_corte)["estado_promesa"] == "activa"
+        )
+        facturas_en_disputa = sum(
+            1
+            for factura in active_facturas
+            if factura.estado_factura == "en_disputa"
+            and (factura.updated_at is None or factura.updated_at.date() <= fecha_corte)
+        )
     return DashboardSummary(
         total_facturas=total_facturas,
         facturas_activas=facturas_activas,
         monto_pendiente=float(monto_pendiente),
         monto_vencido=float(monto_vencido),
+        clientes_con_monto_vencido=clientes_con_monto_vencido,
         promesas_activas=promesas_activas,
         facturas_en_disputa=facturas_en_disputa,
     )
@@ -148,11 +190,16 @@ def list_customers(
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     sector: str | None = None,
+    q: str | None = Query(default=None, min_length=1, max_length=120),
     db: Session = Depends(get_db),
 ) -> list[ClienteOut]:
-    stmt = select(Cliente).order_by(Cliente.cliente_id).limit(limit).offset(offset)
+    stmt = select(Cliente)
     if sector:
         stmt = stmt.where(Cliente.sector == sector)
+    if q:
+        search = f"%{q.strip()}%"
+        stmt = stmt.where(Cliente.nombre.ilike(search))
+    stmt = stmt.order_by(Cliente.nombre, Cliente.cliente_id).limit(limit).offset(offset)
     return list(db.scalars(stmt))
 
 
@@ -292,7 +339,13 @@ def recalculate_scoring(
     service = get_prediction_service()
     for factura_id in invoice_ids:
         try:
-            service.predict_invoice(db, factura_id, payload.fecha_corte, persist=payload.persist)
+            service.predict_invoice(
+                db,
+                factura_id,
+                payload.fecha_corte,
+                persist=payload.persist,
+                use_prepared_snapshot=False,
+            )
             evaluated += 1
         except ValueError as exc:
             errores.append({"factura_id": factura_id, "error": str(exc)})
@@ -348,6 +401,25 @@ def get_invoice_interactions(
     if fecha_corte:
         stmt = stmt.where(GestionCobranza.fecha_gestion <= fecha_corte)
     return [interaction_payload(row) for row in db.scalars(stmt)]
+
+
+@router.get("/invoices/{factura_id}/promises", response_model=list[PromesaOut], tags=["promises"])
+def get_invoice_promises(
+    factura_id: str,
+    fecha_corte: date | None = None,
+    db: Session = Depends(get_db),
+) -> list[PromesaOut]:
+    factura = db.get(Factura, factura_id)
+    if factura is None:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+    stmt = (
+        select(PromesaPago)
+        .where(PromesaPago.factura_id == factura_id)
+        .order_by(PromesaPago.fecha_promesa, PromesaPago.promesa_id)
+    )
+    if fecha_corte:
+        stmt = stmt.where(PromesaPago.fecha_promesa <= fecha_corte)
+    return list(db.scalars(stmt))
 
 
 @router.get("/invoices/{factura_id}/prediction-daily", response_model=list[PredictionDailyOut], tags=["prediction"])
@@ -488,6 +560,7 @@ def score_invoice(
             factura_id=factura_id,
             fecha_corte=fecha_corte,
             persist=payload.persist,
+            use_prepared_snapshot=payload.use_prepared_snapshot,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

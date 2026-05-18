@@ -73,6 +73,8 @@ El modelo seleccionado fue `Logistic Regression`. Aunque `Random Forest` logra u
 
 La curva de aprendizaje del mejor modelo queda en `learning_curve_best_model.csv` y `learning_curve_best_model.png`. En el punto final, el F1 train fue 0.5817 y el F1 de validacion interna fue 0.5632, con gap 0.0186. Esto respalda que la regresion logistica no esta sobreajustando de forma preocupante.
 
+Lectura posterior de la curva: visualmente puede parecer una curva "plana" o de bajo desempeno, pero no indica un problema grave de sobreajuste. Train y validacion estan cerca, por lo que la senal principal es un techo de capacidad del modelo lineal. Se revisaron ajustes de hiperparametros de Logistic Regression en la fase 5 (`C`, `class_weight`, `max_iter` y `tol`) y el mejor tuning quedo practicamente empatado con el baseline externo (`F1-macro 0.5697` vs `0.5700`). Por esa diferencia minima no se justifica cambiar el modelo ni regenerar el artefacto consumido por el backend/MVP; la decision metodologica es mantener Logistic Regression como modelo estable, interpretable y compatible con las fases posteriores.
+
 ## 7. Fairness y sesgo algoritmico
 
 Variables sensibles o proxies revisados:

@@ -22,6 +22,7 @@ TECHNICAL_TO_USER_LABEL = {
 }
 LATE_WEIGHTS = {"+30": 0.40, "+60": 0.70, "+90": 1.00}
 HIGH_RISK_CLASSES = {"+60", "+90"}
+POSITIVE_PRE_DUE_RESULTS = {"cod_1": 0.75, "cod_2": 0.85}
 
 
 def _decode_labels(values, target_encoder) -> np.ndarray:
@@ -82,6 +83,8 @@ class PredictionService:
         pred_class = str(_decode_labels(raw_pred, self.target_encoder)[0])
         proba = self.model.predict_proba(x_matrix)[0]
         proba_by_class = {class_name: float(proba[idx]) for idx, class_name in enumerate(self.class_names)}
+        proba_by_class = self._apply_operational_signal_adjustment(proba_by_class, feature_row.data)
+        pred_class = max(proba_by_class, key=proba_by_class.get)
 
         prob_pago_plazo = proba_by_class.get("on_time", 0.0)
         prob_atraso_leve = proba_by_class.get("+30", 0.0)
@@ -194,6 +197,27 @@ class PredictionService:
             )
             current_date += timedelta(days=1)
         return predictions
+
+    @staticmethod
+    def _apply_operational_signal_adjustment(proba_by_class: dict[str, float], features: dict) -> dict[str, float]:
+        result_code = str(features.get("ultimo_resultado_enc", ""))
+        dias_mora = int(features.get("dias_mora_observable", 0))
+        has_dispute = int(features.get("tiene_disputa_activa", 0)) == 1
+        if dias_mora > 0 or has_dispute or result_code not in POSITIVE_PRE_DUE_RESULTS:
+            return proba_by_class
+
+        late_factor = POSITIVE_PRE_DUE_RESULTS[result_code]
+        adjusted = dict(proba_by_class)
+        transferred = 0.0
+        for class_name in ["+30", "+60", "+90"]:
+            original = adjusted.get(class_name, 0.0)
+            adjusted[class_name] = original * late_factor
+            transferred += original - adjusted[class_name]
+        adjusted["on_time"] = adjusted.get("on_time", 0.0) + transferred
+        total = sum(adjusted.values())
+        if total <= 0:
+            return proba_by_class
+        return {class_name: value / total for class_name, value in adjusted.items()}
 
     @staticmethod
     def _estado_factura_al_corte(factura: Factura, fecha_corte: date, features: dict) -> str:

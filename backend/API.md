@@ -460,7 +460,8 @@ Request body:
 ```json
 {
   "fecha_corte": "2024-08-15",
-  "persist": true
+  "persist": true,
+  "use_prepared_snapshot": false
 }
 ```
 
@@ -468,8 +469,9 @@ Campos:
 
 | Campo | Tipo | Default | Notas |
 | --- | --- | --- | --- |
-| `fecha_corte` | date/null | hoy | Fecha de scoring. Si coincide con un corte preparado, usa `features_ml_prepared.csv`; si no, construye features desde la base operativa. |
+| `fecha_corte` | date/null | hoy | Fecha de scoring. |
 | `persist` | boolean | `true` | Si es `true`, guarda la prediccion en `predicciones_factura`. Necesario para que aparezca en `/invoices/prioritized`. |
+| `use_prepared_snapshot` | boolean | `true` | Si es `true`, puede usar `features_ml_prepared.csv` cuando existe un corte exacto. En operaciones en vivo conviene enviar `false` para construir features desde la base operativa actualizada. |
 
 Respuesta `200`:
 
@@ -570,7 +572,7 @@ Registra una gestion de cobranza.
 }
 ```
 
-`resultado` debe ser coherente con `contacto_exitoso`. Si `recalculate=true`, el backend recalcula la factura usando `fecha_gestion` como `fecha_corte`.
+`resultado` debe ser coherente con `contacto_exitoso`. `motivo_no_pago` solo aplica cuando hubo contacto exitoso, la factura ya estaba vencida en `fecha_gestion` y el resultado no fue pago inmediato; en gestiones preventivas, sin contacto o con resultado `pagado`, debe enviarse como `null` u omitirse. Si `recalculate=true`, el backend recalcula solo esa factura usando `fecha_gestion` como `fecha_corte`; no ejecuta el recalculo global de `/scoring/recalculate`.
 
 ### POST `/payment-promises`
 

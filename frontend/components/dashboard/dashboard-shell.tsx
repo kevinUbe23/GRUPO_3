@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 import { AiInsightsPanel } from "@/components/dashboard/ai-insights-panel";
@@ -22,19 +22,35 @@ import type {
   InteractionCreateInput,
   Invoice,
   InvoiceCreateInput,
+  InvoiceUpdateInput,
   PaymentCreateInput,
+  PaymentPromise,
   Prediction,
   PredictionDailyItem,
   PredictionHistoryItem,
   PromiseCreateInput,
+  PromiseUpdateInput,
   PrioritizedInvoice,
   RecalculateResult,
+  SimulationChange,
   Segment
 } from "@/lib/types";
 
 const DEFAULT_PAGE_SIZE = 15;
 const PRIORITIZED_LIMIT = 200;
 type ScoreFilter = "todos" | "critico" | "alto" | "medio" | "bajo";
+type QueueLoadResult = {
+  summary: DashboardSummary;
+  preventive: PrioritizedInvoice[];
+  overdue: PrioritizedInvoice[];
+  paid: PrioritizedInvoice[];
+};
+
+type RecalculateOptions = {
+  keepSelected?: boolean;
+  preferredFacturaId?: string;
+  queueView?: DashboardView;
+};
 
 export function DashboardShell() {
   const [fechaCorte, setFechaCorte] = useState(DEFAULT_CUTOFF);
@@ -51,10 +67,12 @@ export function DashboardShell() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedCustomerSegment, setSelectedCustomerSegment] = useState<Segment | null>(null);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [promises, setPromises] = useState<PaymentPromise[]>([]);
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [predictionHistory, setPredictionHistory] = useState<PredictionHistoryItem[]>([]);
   const [predictionDaily, setPredictionDaily] = useState<PredictionDailyItem[]>([]);
   const [batchResult, setBatchResult] = useState<RecalculateResult | null>(null);
+  const [simulationChanges, setSimulationChanges] = useState<SimulationChange[]>([]);
   const [query, setQuery] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
   const [scoreFilter, setScoreFilter] = useState<ScoreFilter>("todos");
@@ -63,7 +81,9 @@ export function DashboardShell() {
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdInvoiceNotice, setCreatedInvoiceNotice] = useState<string | null>(null);
   const [detailVersion, setDetailVersion] = useState(0);
+  const refreshSequence = useRef(0);
 
   const activeRows = useMemo(() => {
     if (activeView === "overdue") return overdueRows;
@@ -139,15 +159,18 @@ export function DashboardShell() {
   async function loadSummaryAndQueue(
     keepSelected = true,
     preferredFacturaId?: string,
-    queueView: DashboardView = activeView
-  ) {
+    queueView: DashboardView = activeView,
+    cutoffDate = fechaCorte,
+    refreshId?: number
+  ): Promise<QueueLoadResult | null> {
     setError(null);
     const [summary, preventive, overdue, paid] = await Promise.all([
-      api.dashboard(fechaCorte),
-      api.prioritized(PRIORITIZED_LIMIT, fechaCorte, "preventive"),
-      api.prioritized(PRIORITIZED_LIMIT, fechaCorte, "overdue"),
-      api.prioritized(PRIORITIZED_LIMIT, fechaCorte, "paid")
+      api.dashboard(cutoffDate),
+      api.prioritized(PRIORITIZED_LIMIT, cutoffDate, "preventive"),
+      api.prioritized(PRIORITIZED_LIMIT, cutoffDate, "overdue"),
+      api.prioritized(PRIORITIZED_LIMIT, cutoffDate, "paid")
     ]);
+    if (refreshId !== undefined && refreshId !== refreshSequence.current) return null;
 
     setDashboard(summary);
     setPreventiveRows(preventive);
@@ -163,6 +186,7 @@ export function DashboardShell() {
       if (!current) return queue[0] ?? null;
       return queue.find((row) => row.factura_id === current.factura_id) ?? queue[0] ?? null;
     });
+    return { summary, preventive, overdue, paid };
   }
 
   async function loadCustomers(keepSelected = true) {
@@ -176,13 +200,15 @@ export function DashboardShell() {
   }
 
   async function initializeData() {
+    refreshSequence.current += 1;
     setLoading(true);
     setError(null);
+    setCreatedInvoiceNotice(null);
     try {
       await api.initDb();
       setBatchResult(null);
       setPrediction(null);
-      await loadSummaryAndQueue(false);
+      await recalculate({ keepSelected: false });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo inicializar la base.");
     } finally {
@@ -190,18 +216,56 @@ export function DashboardShell() {
     }
   }
 
-  async function recalculate() {
+  async function recalculate(options: RecalculateOptions = {}) {
+    const { keepSelected = true, preferredFacturaId, queueView = activeView } = options;
+    const refreshId = ++refreshSequence.current;
+    const cutoffDate = fechaCorte;
     setLoading(true);
     setError(null);
+    if (!preferredFacturaId) setCreatedInvoiceNotice(null);
     try {
-      const result = await api.recalculate(fechaCorte, PRIORITIZED_LIMIT);
+      const before = [...preventiveRows, ...overdueRows].map((row, index) => ({
+        factura_id: row.factura_id,
+        priority_score_0_100: row.priority_score_0_100,
+        accion_sugerida: row.accion_sugerida,
+        position: index + 1
+      }));
+      const result = await api.recalculate(cutoffDate, PRIORITIZED_LIMIT);
+      if (refreshId !== refreshSequence.current) return;
       setBatchResult(result);
       setPrediction(null);
-      await loadSummaryAndQueue(true);
+      const loaded = await loadSummaryAndQueue(keepSelected, preferredFacturaId, queueView, cutoffDate, refreshId);
+      if (!loaded) return;
+      const beforeById = new Map(before.map((item) => [item.factura_id, item]));
+      const changes: SimulationChange[] = [...loaded.preventive, ...loaded.overdue]
+        .slice(0, 25)
+        .map<SimulationChange | null>((row, index) => {
+          const previous = beforeById.get(row.factura_id);
+          if (!previous) return null;
+          const previousScore = previous.priority_score_0_100;
+          const nextScore = row.priority_score_0_100;
+          return {
+            factura_id: row.factura_id,
+            score_delta:
+              previousScore === null || previousScore === undefined || nextScore === null || nextScore === undefined
+                ? null
+                : nextScore - previousScore,
+            accion_anterior: previous.accion_sugerida,
+            accion_nueva: row.accion_sugerida,
+            posicion_delta: previous.position - (index + 1)
+          };
+        })
+        .filter((item): item is SimulationChange => item !== null)
+        .filter((item) => item.score_delta !== 0 || item.accion_anterior !== item.accion_nueva || item.posicion_delta !== 0)
+        .slice(0, 5);
+      setSimulationChanges(changes);
+      setDetailVersion((value) => value + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo recalcular la cartera.");
+      if (refreshId === refreshSequence.current) {
+        setError(err instanceof Error ? err.message : "No se pudo recalcular la cartera.");
+      }
     } finally {
-      setLoading(false);
+      if (refreshId === refreshSequence.current) setLoading(false);
     }
   }
 
@@ -229,21 +293,29 @@ export function DashboardShell() {
   async function createInvoice(payload: InvoiceCreateInput) {
     setLoading(true);
     setError(null);
+    setCreatedInvoiceNotice(null);
+    setBatchResult(null);
+    setSimulationChanges([]);
     try {
       const created = await api.createInvoice(payload);
       const targetView = viewForInvoiceAtCutoff(created);
       let scoreWarning: string | null = null;
+      let scoredPrediction: Prediction | null = null;
       if (!["pagada", "anulada", "castigada"].includes(created.estado_factura) && created.fecha_emision <= fechaCorte) {
         try {
-          await api.score(created.factura_id, fechaCorte, true);
+          scoredPrediction = await api.score(created.factura_id, fechaCorte, true);
         } catch (err) {
           scoreWarning = err instanceof Error ? err.message : "Factura creada sin prediccion calculada.";
         }
       }
+      setQuery(created.factura_id);
+      setScoreFilter("todos");
+      setCurrentPage(1);
       setActiveView(targetView);
-      setPrediction(null);
+      setPrediction(scoredPrediction);
       await loadSummaryAndQueue(true, created.factura_id, targetView);
       setDetailVersion((value) => value + 1);
+      setCreatedInvoiceNotice(`Factura ${created.factura_id} creada y seleccionada.`);
       if (scoreWarning) {
         setError(`Factura creada, pero no se pudo calcular la prediccion: ${scoreWarning}`);
       }
@@ -259,15 +331,18 @@ export function DashboardShell() {
   async function createInteraction(payload: InteractionCreateInput) {
     setDetailLoading(true);
     setError(null);
+    setBatchResult(null);
+    setSimulationChanges([]);
     try {
       await api.createInteraction(payload);
       let scoreWarning: string | null = null;
+      let scoredPrediction: Prediction | null = null;
       try {
-        await api.score(payload.factura_id, fechaCorte, true);
+        scoredPrediction = await api.score(payload.factura_id, fechaCorte, true);
       } catch (err) {
         scoreWarning = err instanceof Error ? err.message : "Gestion registrada sin prediccion recalculada.";
       }
-      setPrediction(null);
+      setPrediction(scoredPrediction);
       await loadSummaryAndQueue(true, payload.factura_id, activeView);
       setDetailVersion((value) => value + 1);
       if (scoreWarning) {
@@ -286,15 +361,18 @@ export function DashboardShell() {
     if (!selected) return;
     setDetailLoading(true);
     setError(null);
+    setBatchResult(null);
+    setSimulationChanges([]);
     try {
       await api.createPromise(payload);
       let scoreWarning: string | null = null;
+      let scoredPrediction: Prediction | null = null;
       try {
-        await api.score(selected.factura_id, fechaCorte, true);
+        scoredPrediction = await api.score(selected.factura_id, fechaCorte, true);
       } catch (err) {
         scoreWarning = err instanceof Error ? err.message : "Promesa registrada sin prediccion recalculada.";
       }
-      setPrediction(null);
+      setPrediction(scoredPrediction);
       await loadSummaryAndQueue(true, selected.factura_id, activeView);
       setDetailVersion((value) => value + 1);
       if (scoreWarning) {
@@ -309,9 +387,72 @@ export function DashboardShell() {
     }
   }
 
+  async function updateInvoice(facturaId: string, payload: InvoiceUpdateInput) {
+    setDetailLoading(true);
+    setError(null);
+    setBatchResult(null);
+    setSimulationChanges([]);
+    try {
+      const updated = await api.updateInvoice(facturaId, payload);
+      let scoreWarning: string | null = null;
+      let scoredPrediction: Prediction | null = null;
+      const shouldScore =
+        updated.fecha_emision <= fechaCorte && !["pagada", "anulada", "castigada"].includes(updated.estado_factura);
+      if (shouldScore) {
+        try {
+          scoredPrediction = await api.score(updated.factura_id, fechaCorte, true);
+        } catch (err) {
+          scoreWarning = err instanceof Error ? err.message : "Factura actualizada sin prediccion recalculada.";
+        }
+      }
+      const targetView = viewForInvoiceAtCutoff(updated);
+      setActiveView(targetView);
+      setPrediction(scoredPrediction);
+      await loadSummaryAndQueue(true, updated.factura_id, targetView);
+      setDetailVersion((value) => value + 1);
+      if (scoreWarning) setError(`Factura actualizada, pero no se pudo recalcular la prediccion: ${scoreWarning}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo actualizar la factura.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function updatePromise(promesaId: string, payload: PromiseUpdateInput) {
+    if (!selected) return;
+    setDetailLoading(true);
+    setError(null);
+    setBatchResult(null);
+    setSimulationChanges([]);
+    try {
+      await api.updatePromise(promesaId, payload);
+      let scoreWarning: string | null = null;
+      let scoredPrediction: Prediction | null = null;
+      try {
+        scoredPrediction = await api.score(selected.factura_id, fechaCorte, true);
+      } catch (err) {
+        scoreWarning = err instanceof Error ? err.message : "Promesa actualizada sin prediccion recalculada.";
+      }
+      setPrediction(scoredPrediction);
+      await loadSummaryAndQueue(true, selected.factura_id, activeView);
+      setDetailVersion((value) => value + 1);
+      if (scoreWarning) setError(`Promesa actualizada, pero no se pudo recalcular la prediccion: ${scoreWarning}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo actualizar la promesa.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
   async function registerPayment(payload: PaymentCreateInput) {
     setDetailLoading(true);
     setError(null);
+    setBatchResult(null);
+    setSimulationChanges([]);
     try {
       const paidInvoice = await api.registerPayment(payload);
       setActiveView("paid");
@@ -328,9 +469,7 @@ export function DashboardShell() {
   }
 
   useEffect(() => {
-    loadSummaryAndQueue().catch((err) => {
-      setError(err instanceof Error ? err.message : "No se pudo conectar con el backend.");
-    });
+    recalculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaCorte]);
 
@@ -379,6 +518,7 @@ export function DashboardShell() {
       setCustomer(null);
       setSegment(null);
       setInteractions([]);
+      setPromises([]);
       setPredictionHistory([]);
       setPredictionDaily([]);
       return;
@@ -391,6 +531,7 @@ export function DashboardShell() {
     setCustomer(null);
     setSegment(null);
     setInteractions([]);
+    setPromises([]);
     setPredictionHistory([]);
     setPredictionDaily([]);
 
@@ -399,15 +540,17 @@ export function DashboardShell() {
       api.customer(selectedClienteId),
       api.segment(selectedClienteId),
       api.interactions(selectedFacturaId, fechaCorte),
+      api.invoicePromises(selectedFacturaId, fechaCorte),
       api.predictionHistory(selectedFacturaId, fechaCorte),
       api.predictionDaily(selectedFacturaId, fechaCorte)
     ])
-      .then(([invoiceData, customerData, segmentData, interactionsData, predictionHistoryData, predictionDailyData]) => {
+      .then(([invoiceData, customerData, segmentData, interactionsData, promisesData, predictionHistoryData, predictionDailyData]) => {
         if (cancelled) return;
         setInvoice(invoiceData);
         setCustomer(customerData);
         setSegment(segmentData);
         setInteractions(interactionsData);
+        setPromises(promisesData);
         setPredictionHistory(predictionHistoryData);
         setPredictionDaily(predictionDailyData);
       })
@@ -433,7 +576,7 @@ export function DashboardShell() {
             loading={loading}
             onFechaCorteChange={setFechaCorte}
             onInitialize={initializeData}
-            onRecalculate={recalculate}
+            onRecalculate={() => recalculate()}
             onCreateInvoice={createInvoice}
             activeView={activeView}
             onViewChange={setActiveView}
@@ -446,11 +589,16 @@ export function DashboardShell() {
             </Alert>
           )}
 
+          {createdInvoiceNotice && (
+            <Alert className="mb-4">
+              <CheckCircle2 />
+              <AlertDescription>{createdInvoiceNotice} El buscador quedo filtrado con ese codigo.</AlertDescription>
+            </Alert>
+          )}
+
           <SummaryCards dashboard={dashboard} />
 
-          {(activeView === "summary" || activeView === "metrics") && (
-            <AiInsightsPanel rows={activeView === "metrics" ? [...preventiveRows, ...overdueRows] : preventiveRows} />
-          )}
+          {activeView === "metrics" && <AiInsightsPanel rows={[...preventiveRows, ...overdueRows]} />}
 
           {batchResult && (
             <section className="mt-4 flex flex-wrap items-center gap-3 rounded-md border bg-background px-4 py-3 text-sm shadow-sm">
@@ -460,6 +608,12 @@ export function DashboardShell() {
               {batchResult.total_con_error > 0 && (
                 <Badge variant="destructive">{batchResult.total_con_error} con error</Badge>
               )}
+              {simulationChanges.map((item) => (
+                <Badge key={item.factura_id} variant="outline">
+                  {item.factura_id}: score {item.score_delta === null ? "s/d" : item.score_delta.toFixed(1)}, pos{" "}
+                  {item.posicion_delta === null ? "s/d" : item.posicion_delta > 0 ? `+${item.posicion_delta}` : item.posicion_delta}
+                </Badge>
+              ))}
             </section>
           )}
 
@@ -520,12 +674,15 @@ export function DashboardShell() {
                 prediction={prediction}
                 predictionHistory={predictionHistory}
                 predictionDaily={predictionDaily}
+                promises={promises}
                 fechaCorte={fechaCorte}
                 detailLoading={detailLoading}
                 canScore={activeView !== "paid"}
                 onScore={scoreSelected}
+                onUpdateInvoice={updateInvoice}
                 onCreateInteraction={createInteraction}
                 onCreatePromise={createPromise}
+                onUpdatePromise={updatePromise}
                 onRegisterPayment={registerPayment}
               />
             </section>

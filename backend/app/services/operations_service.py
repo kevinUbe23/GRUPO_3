@@ -51,6 +51,7 @@ NO_PAYMENT_REASON_LABELS = {
     "otro": "Otro motivo",
 }
 NON_PAYMENT_REASON_LABELS = NO_PAYMENT_REASON_LABELS
+VALID_NO_PAYMENT_REASONS = set(NO_PAYMENT_REASON_LABELS)
 
 
 def _next_id(db: Session, model, id_col: str, prefix: str) -> str:
@@ -181,6 +182,18 @@ def _validate_interaction(payload: GestionCreate, factura: Factura) -> None:
         raise ValueError("fecha_gestion no puede ser anterior a fecha_emision")
     if factura.fecha_pago_real and payload.fecha_gestion > factura.fecha_pago_real:
         raise ValueError("No se puede registrar gestion posterior al pago real")
+    if payload.motivo_no_pago is not None:
+        if payload.motivo_no_pago not in VALID_NO_PAYMENT_REASONS:
+            raise ValueError(f"motivo_no_pago invalido: {payload.motivo_no_pago}")
+        can_register_reason = (
+            payload.contacto_exitoso
+            and payload.fecha_gestion > factura.fecha_vencimiento
+            and payload.resultado != "pagado"
+        )
+        if not can_register_reason:
+            raise ValueError(
+                "motivo_no_pago solo aplica con contacto exitoso, factura vencida y resultado distinto de pago"
+            )
 
 
 def create_interaction(db: Session, payload: GestionCreate) -> GestionCobranza:
@@ -286,7 +299,7 @@ def update_payment_promise(db: Session, promesa_id: str, payload: PromesaUpdate)
         promesa.se_cumplio = payload.se_cumplio
     elif payload.estado_promesa == "cumplida":
         promesa.se_cumplio = True
-    elif payload.estado_promesa == "incumplida":
+    elif payload.estado_promesa in {"activa", "incumplida", "reemplazada", "cancelada"}:
         promesa.se_cumplio = False
     promesa.updated_at = utc_now()
     db.commit()

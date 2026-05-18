@@ -44,3 +44,22 @@ def test_rejects_cutoff_before_invoice_issue_date() -> None:
                 fecha_corte=pd.to_datetime("2022-12-01").date(),
                 persist=False,
             )
+
+
+def test_positive_pre_due_contact_reduces_late_probabilities() -> None:
+    service = get_prediction_service()
+    raw_proba = {"+30": 0.13, "+60": 0.21, "+90": 0.54, "on_time": 0.12}
+    adjusted = service._apply_operational_signal_adjustment(
+        raw_proba,
+        {
+            "ultimo_resultado_enc": "cod_1",
+            "dias_mora_observable": 0,
+            "tiene_disputa_activa": 0,
+        },
+    )
+
+    assert adjusted["on_time"] > raw_proba["on_time"]
+    assert adjusted["+30"] < raw_proba["+30"]
+    assert adjusted["+60"] < raw_proba["+60"]
+    assert adjusted["+90"] < raw_proba["+90"]
+    assert math.isclose(sum(adjusted.values()), 1.0, abs_tol=1e-12)

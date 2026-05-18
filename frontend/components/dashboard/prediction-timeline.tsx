@@ -1,7 +1,15 @@
 "use client";
 
 import { LineChart, Target } from "lucide-react";
+import { CartesianGrid, Legend, Line, LineChart as RechartsLineChart, XAxis, YAxis } from "recharts";
 
+import {
+  ChartContainer,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig
+} from "@/components/ui/chart";
 import { Badge } from "@/components/ui/badge";
 import { compactDate, percent, priorityClass } from "@/lib/formatters";
 import type { Invoice, PredictionDailyItem, PredictionHistoryItem } from "@/lib/types";
@@ -14,6 +22,12 @@ type PredictionTimelineProps = {
   cutoffDate: string;
 };
 
+const chartConfig = {
+  score: { label: "Score de prioridad", color: "var(--primary)" },
+  atraso: { label: "Prob. cualquier atraso", color: "var(--muted-foreground)" },
+  moraGrave: { label: "Prob. mora grave", color: "var(--destructive)" }
+} satisfies ChartConfig;
+
 function actualLabel(invoice: Invoice | null, fallback: PredictionHistoryItem | undefined) {
   const target = invoice?.target_mora_simulado ?? fallback?.target_mora_simulado;
   const days = invoice?.dias_mora_real ?? fallback?.dias_mora_real;
@@ -25,43 +39,26 @@ function actualLabel(invoice: Invoice | null, fallback: PredictionHistoryItem | 
   return "Atraso critico real";
 }
 
-function points(values: number[], width: number, height: number, maxValue: number) {
-  if (values.length === 0) return "";
-  const step = values.length > 1 ? width / (values.length - 1) : width;
-  return values
-    .map((value, index) => {
-      const x = values.length > 1 ? index * step : width;
-      const y = height - (Math.max(0, Math.min(value, maxValue)) / maxValue) * height;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+function interpretDifference(predicted: string | undefined, actual: string) {
+  if (!predicted) return "Sin prediccion final para contrastar.";
+  if (actual === "Realidad pendiente") return "El resultado real todavia no esta cerrado.";
+  return `${predicted} frente a ${actual}.`;
 }
 
 export function PredictionTimeline({ invoice, history, daily, cutoffDate }: PredictionTimelineProps) {
   const visibleHistory = history.filter((item) => item.fecha_corte <= cutoffDate);
   const compactHistory = visibleHistory.slice(-8);
   const last = compactHistory.at(-1);
-  const chartWidth = 360;
-  const chartHeight = 160;
-  const scorePoints = points(
-    daily.map((item) => item.priority_score_0_100),
-    chartWidth,
-    chartHeight,
-    100
-  );
-  const latePoints = points(
-    daily.map((item) => item.any_late_probability * 100),
-    chartWidth,
-    chartHeight,
-    100
-  );
-  const severePoints = points(
-    daily.map((item) => item.high_risk_probability * 100),
-    chartWidth,
-    chartHeight,
-    100
-  );
+  const chartData = daily.map((item) => ({
+    fecha: compactDate(item.fecha_corte),
+    fechaCompleta: item.fecha_corte,
+    score: Number(item.priority_score_0_100.toFixed(1)),
+    atraso: Number((item.any_late_probability * 100).toFixed(1)),
+    moraGrave: Number((item.high_risk_probability * 100).toFixed(1)),
+    etiqueta: item.predicted_label_usuario
+  }));
   const lastDaily = daily.at(-1);
+  const actual = actualLabel(invoice, last);
 
   return (
     <section className="mt-4 rounded-md border p-4">
@@ -73,56 +70,79 @@ export function PredictionTimeline({ invoice, history, daily, cutoffDate }: Pred
         <Badge variant="secondary">{daily.length || visibleHistory.length} puntos</Badge>
       </div>
 
-      {daily.length > 0 ? (
+      {chartData.length > 1 ? (
         <div className="flex flex-col gap-3">
-          <div className="overflow-hidden rounded-md border bg-background p-3">
-            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="Evolucion diaria de prediccion" className="h-44 w-full">
-              <line x1="0" y1="40" x2={chartWidth} y2="40" className="stroke-muted" strokeWidth="1" />
-              <line x1="0" y1="80" x2={chartWidth} y2="80" className="stroke-muted" strokeWidth="1" />
-              <line x1="0" y1="120" x2={chartWidth} y2="120" className="stroke-muted" strokeWidth="1" />
-              <polyline points={latePoints} fill="none" className="stroke-muted-foreground" strokeWidth="2" />
-              <polyline points={severePoints} fill="none" className="stroke-destructive" strokeWidth="2" />
-              <polyline points={scorePoints} fill="none" className="stroke-primary" strokeWidth="3" />
-              {daily.map((item, index) => {
-                const x = daily.length > 1 ? (index * chartWidth) / (daily.length - 1) : chartWidth;
-                const y = chartHeight - (Math.max(0, Math.min(item.priority_score_0_100, 100)) / 100) * chartHeight;
-                return <circle key={item.fecha_corte} cx={x} cy={y} r="2.5" className="fill-primary" />;
-              })}
-            </svg>
-            <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span>Score prioridad</span>
-              <span>Prob. atraso</span>
-              <span>Prob. mora grave</span>
-            </div>
-          </div>
+          <ChartContainer
+            config={chartConfig}
+            className="h-56 w-full"
+            role="img"
+            aria-label="Evolucion del score de prioridad y probabilidades de atraso de la factura"
+          >
+            <RechartsLineChart data={chartData} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="fecha" tickLine={false} axisLine={false} minTickGap={18} />
+              <YAxis tickLine={false} axisLine={false} domain={[0, 100]} width={32} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fechaCompleta ?? ""}
+                    formatter={(value, name) => {
+                      const label = chartConfig[String(name) as keyof typeof chartConfig]?.label ?? name;
+                      const suffix = name === "score" ? "/100" : "%";
+                      return (
+                        <div className="flex w-full items-center justify-between gap-6">
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="font-mono font-medium tabular-nums">
+                            {Number(value).toFixed(1)}
+                            {suffix}
+                          </span>
+                        </div>
+                      );
+                    }}
+                  />
+                }
+              />
+              <Legend content={<ChartLegendContent />} />
+              <Line dataKey="score" type="monotone" stroke="var(--color-score)" strokeWidth={3} dot={false} />
+              <Line dataKey="atraso" type="monotone" stroke="var(--color-atraso)" strokeWidth={2} dot={false} />
+              <Line dataKey="moraGrave" type="monotone" stroke="var(--color-moraGrave)" strokeWidth={2} dot={false} />
+            </RechartsLineChart>
+          </ChartContainer>
 
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-md bg-muted/45 p-3">
-              <p className="text-xs uppercase text-muted-foreground">Score final</p>
+              <p className="text-xs uppercase text-muted-foreground">Prediccion final</p>
               <Badge variant="outline" className={cn("mt-2 font-semibold", priorityClass(lastDaily?.priority_score_0_100 ?? 0))}>
-                {(lastDaily?.priority_score_0_100 ?? 0).toFixed(1)}
+                {(lastDaily?.priority_score_0_100 ?? 0).toFixed(1)}/100
               </Badge>
             </div>
             <div className="rounded-md bg-muted/45 p-3">
-              <p className="text-xs uppercase text-muted-foreground">Atraso</p>
-              <p className="mt-2 font-semibold">{percent.format(lastDaily?.any_late_probability ?? 0)}</p>
+              <p className="text-xs uppercase text-muted-foreground">Resultado real</p>
+              <p className="mt-2 text-sm font-semibold">{actual}</p>
             </div>
             <div className="rounded-md bg-muted/45 p-3">
-              <p className="text-xs uppercase text-muted-foreground">Mora grave</p>
-              <p className="mt-2 font-semibold">{percent.format(lastDaily?.high_risk_probability ?? 0)}</p>
+              <p className="text-xs uppercase text-muted-foreground">Lectura</p>
+              <p className="mt-2 text-sm font-semibold">
+                {percent.format(lastDaily?.any_late_probability ?? 0)} atraso
+              </p>
             </div>
           </div>
 
           <div className="rounded-md bg-muted/45 p-3">
             <div className="mb-2 flex items-center gap-2">
               <Target className="size-4 text-muted-foreground" />
-              <p className="text-sm font-semibold">Comparacion contra realidad</p>
+              <p className="text-sm font-semibold">Comparacion prediccion vs realidad</p>
             </div>
             <p className="text-sm leading-5 text-muted-foreground">
-              Ultima lectura: {lastDaily ? `${lastDaily.predicted_label_usuario} (${percent.format(lastDaily.any_late_probability)} de atraso)` : "sin lectura"}.
-              Realidad: {actualLabel(invoice, last)}.
+              {interpretDifference(lastDaily?.predicted_label_usuario, actual)}
             </p>
           </div>
+        </div>
+      ) : chartData.length === 1 ? (
+        <div className="rounded-md bg-muted/45 p-3 text-sm text-muted-foreground">
+          Prediccion final: <span className="font-medium text-foreground">{chartData[0].etiqueta}</span>, score{" "}
+          <span className="font-medium text-foreground">{chartData[0].score.toFixed(1)}/100</span>. Resultado real:{" "}
+          <span className="font-medium text-foreground">{actual}</span>.
         </div>
       ) : compactHistory.length > 0 ? (
         <div className="grid gap-2">
@@ -131,10 +151,7 @@ export function PredictionTimeline({ invoice, history, daily, cutoffDate }: Pred
               <span className="text-xs text-muted-foreground">{compactDate(item.fecha_corte)}</span>
               <div className="min-w-0">
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${Math.max(2, item.priority_score_0_100)}%` }}
-                  />
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(2, item.priority_score_0_100)}%` }} />
                 </div>
                 <p className="mt-1 truncate text-xs text-muted-foreground">{item.predicted_label_usuario}</p>
               </div>

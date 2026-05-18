@@ -6,12 +6,15 @@ import type {
   InteractionCreateInput,
   Invoice,
   InvoiceCreateInput,
+  InvoiceUpdateInput,
   PaymentCreateInput,
   Prediction,
   PredictionDailyItem,
   PredictionHistoryItem,
   PromiseCreated,
   PromiseCreateInput,
+  PaymentPromise,
+  PromiseUpdateInput,
   PrioritizedInvoice,
   RecalculateResult,
   Segment
@@ -62,6 +65,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  updateInvoice: (facturaId: string, payload: InvoiceUpdateInput) =>
+    request<Invoice>(`/invoices/${facturaId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
   interactions: (facturaId: string, fechaCorte?: string) =>
     request<Interaction[]>(
       `/invoices/${facturaId}/interactions${fechaCorte ? `?fecha_corte=${fechaCorte}` : ""}`
@@ -76,6 +84,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  invoicePromises: (facturaId: string, fechaCorte?: string) =>
+    request<PaymentPromise[]>(
+      `/invoices/${facturaId}/promises${fechaCorte ? `?fecha_corte=${fechaCorte}` : ""}`
+    ),
+  updatePromise: (promesaId: string, payload: PromiseUpdateInput) =>
+    request<PaymentPromise>(`/payment-promises/${promesaId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
   registerPayment: (payload: PaymentCreateInput) =>
     request<Invoice>("/payments", {
       method: "POST",
@@ -87,13 +104,20 @@ export const api = {
     ),
   predictionDaily: (facturaId: string, fechaCorte: string) =>
     request<PredictionDailyItem[]>(`/invoices/${facturaId}/prediction-daily?fecha_corte=${fechaCorte}`),
-  customers: (limit = 100, offset = 0) =>
-    request<Customer[]>(`/customers?limit=${limit}&offset=${offset}`),
+  customers: (limit = 100, offset = 0, query?: string) => {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset)
+    });
+    const trimmedQuery = query?.trim();
+    if (trimmedQuery) params.set("q", trimmedQuery);
+    return request<Customer[]>(`/customers?${params.toString()}`);
+  },
   customer: (clienteId: string) => request<Customer>(`/customers/${clienteId}`),
   segment: (clienteId: string) => request<Segment>(`/customers/${clienteId}/segment`),
-  score: (facturaId: string, fechaCorte: string, persist = true) =>
+  score: (facturaId: string, fechaCorte: string, persist = true, usePreparedSnapshot = false) =>
     request<Prediction>(`/invoices/${facturaId}/score`, {
       method: "POST",
-      body: JSON.stringify({ fecha_corte: fechaCorte, persist })
+      body: JSON.stringify({ fecha_corte: fechaCorte, persist, use_prepared_snapshot: usePreparedSnapshot })
     })
 };

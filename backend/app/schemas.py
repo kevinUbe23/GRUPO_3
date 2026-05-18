@@ -110,6 +110,10 @@ class SegmentoClienteOut(BaseModel):
 class ScoreRequest(BaseModel):
     fecha_corte: date | None = Field(default=None, description="Fecha de scoring. Si se omite, usa hoy.")
     persist: bool = Field(default=True, description="Guarda la prediccion en base de datos.")
+    use_prepared_snapshot: bool = Field(
+        default=True,
+        description="Permite usar el snapshot preparado si existe. Para operaciones en vivo debe ser false.",
+    )
 
 
 class RecalculateRequest(BaseModel):
@@ -225,6 +229,7 @@ class DashboardSummary(BaseModel):
     facturas_activas: int
     monto_pendiente: float
     monto_vencido: float
+    clientes_con_monto_vencido: int
     promesas_activas: int
     facturas_en_disputa: int
 

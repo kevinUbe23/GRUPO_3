@@ -22,13 +22,16 @@ import type {
   Customer,
   Interaction,
   Invoice,
+  InvoiceUpdateInput,
   Prediction,
   PredictionDailyItem,
   PredictionHistoryItem,
   PrioritizedInvoice,
   InteractionCreateInput,
   PaymentCreateInput,
+  PaymentPromise,
   PromiseCreateInput,
+  PromiseUpdateInput,
   Segment
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -42,12 +45,15 @@ type InvoiceDetailPanelProps = {
   prediction: Prediction | null;
   predictionHistory: PredictionHistoryItem[];
   predictionDaily: PredictionDailyItem[];
+  promises: PaymentPromise[];
   fechaCorte: string;
   detailLoading: boolean;
   canScore: boolean;
   onScore: () => void;
+  onUpdateInvoice: (facturaId: string, payload: InvoiceUpdateInput) => Promise<void>;
   onCreateInteraction: (payload: InteractionCreateInput) => Promise<void>;
   onCreatePromise: (payload: PromiseCreateInput) => Promise<void>;
+  onUpdatePromise: (promesaId: string, payload: PromiseUpdateInput) => Promise<void>;
   onRegisterPayment: (payload: PaymentCreateInput) => Promise<void>;
 };
 
@@ -60,12 +66,15 @@ export function InvoiceDetailPanel({
   prediction,
   predictionHistory,
   predictionDaily,
+  promises,
   fechaCorte,
   detailLoading,
   canScore,
   onScore,
+  onUpdateInvoice,
   onCreateInteraction,
   onCreatePromise,
+  onUpdatePromise,
   onRegisterPayment
 }: InvoiceDetailPanelProps) {
   const score = prediction?.priority_score_0_100 ?? selected?.priority_score_0_100;
@@ -208,11 +217,15 @@ export function InvoiceDetailPanel({
               <div className="mt-4">
                 <InvoiceOperationalActions
                   selected={selected}
+                  invoice={invoice}
                   interactions={interactions}
+                  promises={promises}
                   fechaCorte={fechaCorte}
                   disabled={detailLoading}
+                  onUpdateInvoice={onUpdateInvoice}
                   onCreateInteraction={onCreateInteraction}
                   onCreatePromise={onCreatePromise}
+                  onUpdatePromise={onUpdatePromise}
                   onRegisterPayment={onRegisterPayment}
                 />
               </div>
@@ -244,6 +257,26 @@ export function InvoiceDetailPanel({
               <p className="mt-3 text-sm leading-5 text-muted-foreground">{segment.por_que_rating}</p>
             </section>
           )}
+
+          <section className="mt-4 rounded-md border p-4">
+            <p className="mb-3 text-sm font-semibold">Promesas de pago</p>
+            <div className="flex flex-col gap-3">
+              {promises.slice(-5).reverse().map((item) => (
+                <div key={item.promesa_id} className="rounded-md border px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="font-medium">{item.estado_promesa}</span>
+                    <Badge variant={item.se_cumplio ? "secondary" : "outline"}>
+                      {item.se_cumplio ? "Cumplida" : "Sin cumplimiento"}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Promesa {compactDate(item.fecha_promesa)} / compromiso {compactDate(item.fecha_compromiso)}
+                  </p>
+                </div>
+              ))}
+              {promises.length === 0 && <p className="text-sm text-muted-foreground">No hay promesas registradas.</p>}
+            </div>
+          </section>
 
           <section className="mt-4 rounded-md border p-4">
             <p className="mb-3 text-sm font-semibold">Gestiones</p>

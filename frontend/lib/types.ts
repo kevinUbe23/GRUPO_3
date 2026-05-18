@@ -3,6 +3,7 @@ export type DashboardSummary = {
   facturas_activas: number;
   monto_pendiente: number;
   monto_vencido: number;
+  clientes_con_monto_vencido: number;
   promesas_activas: number;
   facturas_en_disputa: number;
 };
@@ -173,6 +174,14 @@ export type InvoiceCreateInput = {
   estado_factura: "abierta" | "pagada" | "en_disputa" | "anulada" | "castigada";
 };
 
+export type InvoiceUpdateInput = Partial<{
+  fecha_emision: string;
+  fecha_vencimiento: string;
+  monto: number;
+  saldo_pendiente: number;
+  estado_factura: "abierta" | "pagada" | "en_disputa" | "anulada" | "castigada";
+}>;
+
 export type InteractionCreateInput = {
   factura_id: string;
   fecha_gestion: string;
@@ -214,7 +223,29 @@ export type PromiseCreated = {
   estado_promesa: string;
 };
 
+export type PaymentPromise = PromiseCreated;
+
+export type PromiseUpdateInput = {
+  estado_promesa: "activa" | "cumplida" | "incumplida" | "cancelada" | "reemplazada";
+  se_cumplio?: boolean | null;
+};
+
 export type PaymentCreateInput = {
   factura_id: string;
   fecha_pago: string;
+};
+
+export type QueueSnapshotItem = {
+  factura_id: string;
+  priority_score_0_100: number | null;
+  accion_sugerida: string | null;
+  position: number;
+};
+
+export type SimulationChange = {
+  factura_id: string;
+  score_delta: number | null;
+  accion_anterior: string | null;
+  accion_nueva: string | null;
+  posicion_delta: number | null;
 };

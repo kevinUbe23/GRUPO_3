@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from urllib.parse import quote
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -69,6 +70,7 @@ def test_actions_catalog_and_batch_recalculate() -> None:
     dashboard = client.get("/api/v1/dashboard/summary?fecha_corte=2023-01-30")
     assert dashboard.status_code == 200
     assert dashboard.json()["facturas_activas"] > 0
+    assert "clientes_con_monto_vencido" in dashboard.json()
 
     active_invoices = client.get("/api/v1/invoices?active_only=true&fecha_corte=2023-01-30&limit=5")
     assert active_invoices.status_code == 200
@@ -373,6 +375,48 @@ def test_create_and_patch_invoice() -> None:
     assert changed_customer.status_code == 400
 
 
+def test_customers_can_be_listed_and_searched_by_name() -> None:
+    _seed_db()
+    client = TestClient(app)
+
+    listed = client.get("/api/v1/customers?limit=5")
+    assert listed.status_code == 200
+    assert len(listed.json()) > 0
+
+    first_customer = listed.json()[0]
+    name_query = first_customer["nombre"].split()[0]
+    searched = client.get(f"/api/v1/customers?q={quote(name_query)}&limit=20")
+
+    assert searched.status_code == 200
+    assert any(row["cliente_id"] == first_customer["cliente_id"] for row in searched.json())
+    assert all(name_query.lower() in row["nombre"].lower() for row in searched.json())
+
+
+def test_dashboard_counts_unique_overdue_customers() -> None:
+    _seed_db()
+    client = TestClient(app)
+    for factura_id, cliente_id in [
+        ("FACAPPOVER001", "CLI0001"),
+        ("FACAPPOVER002", "CLI0001"),
+        ("FACAPPOVER003", "CLI0002"),
+    ]:
+        created = client.post(
+            "/api/v1/invoices",
+            json={
+                "factura_id": factura_id,
+                "cliente_id": cliente_id,
+                "fecha_emision": "2024-01-01",
+                "fecha_vencimiento": "2024-01-10",
+                "monto": 100.0,
+            },
+        )
+        assert created.status_code == 201
+
+    summary = client.get("/api/v1/dashboard/summary?fecha_corte=2024-01-20")
+    assert summary.status_code == 200
+    assert summary.json()["clientes_con_monto_vencido"] >= 2
+
+
 def test_create_interaction_promise_and_payment_flow() -> None:
     _seed_db()
     client = TestClient(app)
@@ -423,6 +467,23 @@ def test_create_interaction_promise_and_payment_flow() -> None:
     )
     assert patched.status_code == 200
     assert patched.json()["se_cumplio"] is True
+
+    listed = client.get(f"/api/v1/invoices/FAC000002/promises?fecha_corte={fecha_gestion.isoformat()}")
+    assert listed.status_code == 200
+    assert [row["promesa_id"] for row in listed.json()] == [promesa_id]
+
+    invalid_status = client.patch(
+        f"/api/v1/payment-promises/{promesa_id}",
+        json={"estado_promesa": "estado_invalido"},
+    )
+    assert invalid_status.status_code == 400
+
+    cancelled = client.patch(
+        f"/api/v1/payment-promises/{promesa_id}",
+        json={"estado_promesa": "cancelada"},
+    )
+    assert cancelled.status_code == 200
+    assert cancelled.json()["se_cumplio"] is False
 
     paid = client.post(
         "/api/v1/payments",
@@ -487,6 +548,79 @@ def test_invoice_interactions_filter_future_gestiones_and_add_labels() -> None:
     unfiltered = client.get("/api/v1/invoices/FACAPPINT001/interactions")
     assert unfiltered.status_code == 200
     assert len(unfiltered.json()) == 2
+
+
+def test_create_interaction_validates_no_payment_reason_context() -> None:
+    _seed_db()
+    client = TestClient(app)
+
+    created = client.post(
+        "/api/v1/invoices",
+        json={
+            "factura_id": "FACAPPREASON001",
+            "cliente_id": "CLI0001",
+            "fecha_emision": "2024-01-01",
+            "fecha_vencimiento": "2024-01-10",
+            "monto": 1200.0,
+        },
+    )
+    assert created.status_code == 201
+
+    before_due_reason = client.post(
+        "/api/v1/collections/interactions",
+        json={
+            "factura_id": "FACAPPREASON001",
+            "fecha_gestion": "2024-01-08",
+            "canal": "llamada",
+            "contacto_exitoso": True,
+            "resultado": "confirma_pago",
+            "motivo_no_pago": "flujo_caja",
+            "recalculate": False,
+        },
+    )
+    assert before_due_reason.status_code == 400
+
+    no_contact_reason = client.post(
+        "/api/v1/collections/interactions",
+        json={
+            "factura_id": "FACAPPREASON001",
+            "fecha_gestion": "2024-01-12",
+            "canal": "llamada",
+            "contacto_exitoso": False,
+            "resultado": "no_contesta",
+            "motivo_no_pago": "sin_respuesta",
+            "recalculate": False,
+        },
+    )
+    assert no_contact_reason.status_code == 400
+
+    paid_reason = client.post(
+        "/api/v1/collections/interactions",
+        json={
+            "factura_id": "FACAPPREASON001",
+            "fecha_gestion": "2024-01-12",
+            "canal": "llamada",
+            "contacto_exitoso": True,
+            "resultado": "pagado",
+            "motivo_no_pago": "flujo_caja",
+            "recalculate": False,
+        },
+    )
+    assert paid_reason.status_code == 400
+
+    valid_reason = client.post(
+        "/api/v1/collections/interactions",
+        json={
+            "factura_id": "FACAPPREASON001",
+            "fecha_gestion": "2024-01-12",
+            "canal": "llamada",
+            "contacto_exitoso": True,
+            "resultado": "rechazo_pago",
+            "motivo_no_pago": "flujo_caja",
+            "recalculate": False,
+        },
+    )
+    assert valid_reason.status_code == 200
 
 
 def test_prediction_daily_is_on_demand_and_stops_when_paid_at_cutoff() -> None:

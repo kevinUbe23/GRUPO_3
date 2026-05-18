@@ -64,7 +64,6 @@ El frontend usa Next.js App Router, React 19, Tailwind CSS 4 y shadcn/ui. La tab
 1. Levantar backend.
 2. Abrir frontend.
 3. Click en `Inicializar`.
-4. Elegir fecha de corte.
-5. Click en `Recalcular`.
-6. Seleccionar una factura de la cola.
-7. Usar `Actualizar prediccion` para recalcular el caso seleccionado.
+4. Elegir fecha de corte; la cartera se recalcula automaticamente para esa fecha.
+5. Seleccionar una factura de la cola.
+6. Usar `Actualizar prediccion` para recalcular manualmente el caso seleccionado cuando haga falta.

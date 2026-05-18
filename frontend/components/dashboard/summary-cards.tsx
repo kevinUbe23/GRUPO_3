@@ -26,6 +26,7 @@ export function SummaryCards({ dashboard }: SummaryCardsProps) {
       <MetricCard
         label="Monto vencido"
         value={money.format(dashboard?.monto_vencido ?? 0)}
+        description={`${(dashboard?.clientes_con_monto_vencido ?? 0).toLocaleString("es-EC")} clientes con deuda vencida`}
         icon={Clock3}
         tone="border-muted-foreground/20 bg-muted text-foreground"
       />

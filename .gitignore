@@ -8,8 +8,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
-# Artefactos locales del backend
-backend/data/
 
 # Frontend local
 frontend/node_modules/
